@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -400,41 +401,110 @@ func TestCheckImageRevision(t *testing.T) {
 	}
 }
 
-// TestSelectDispatchedRun covers picking the run for this commit that this
-// dispatch created.
-func TestSelectDispatchedRun(t *testing.T) {
-	dispatched := time.Date(2026, 11, 27, 12, 0, 0, 0, time.UTC)
-	title := "Head images for " + testFullSha
+// runFor returns a listed run of the commit sha with the given id and age.
+func runFor(id int64, sha string, created time.Time) WorkflowRun {
+	return WorkflowRun{
+		DatabaseID:   id,
+		DisplayTitle: "Head images for " + sha,
+		URL:          "https://github.com/threeport/threeport/actions/runs/" + strconv.FormatInt(id, 10),
+		CreatedAt:    created,
+	}
+}
+
+// TestRunIDsCollectsIds covers the set of ids of listed runs.
+func TestRunIDsCollectsIds(t *testing.T) {
+	runs := []WorkflowRun{runFor(7, testFullSha, time.Time{}), runFor(9, testFullSha, time.Time{})}
+
+	ids := RunIDs(runs)
+	if len(ids) != 2 || !ids[7] || !ids[9] || ids[8] {
+		t.Errorf("RunIDs = %v, want exactly 7 and 9", ids)
+	}
+	if got := RunIDs(nil); len(got) != 0 {
+		t.Errorf("RunIDs(nil) = %v, want empty", got)
+	}
+}
+
+// TestSelectDispatchedRunSkipsRunsFromBeforeTheDispatch covers a run that
+// existed before the dispatch never being taken for the run it started, however
+// recent it is. A run of the same commit that failed a moment ago and a run that
+// another engineer dispatched just before are the cases this prevents.
+func TestSelectDispatchedRunSkipsRunsFromBeforeTheDispatch(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 30, 0, time.UTC)
+
+	// the runs listed before dispatching: one failed fast 5 seconds ago
+	failed := runFor(100, testFullSha, now.Add(-5*time.Second))
+	existing := RunIDs([]WorkflowRun{failed})
+
+	// assert that until the new run is listed, nothing is selected
+	if run, ok := SelectDispatchedRun([]WorkflowRun{failed}, testFullSha, existing); ok {
+		t.Errorf("SelectDispatchedRun chose run %d from before the dispatch", run.DatabaseID)
+	}
+
+	// assert the new run is selected once it is listed, not the failed one
+	started := runFor(101, testFullSha, now)
+	run, ok := SelectDispatchedRun([]WorkflowRun{started, failed}, testFullSha, existing)
+	if !ok || run.DatabaseID != 101 {
+		t.Errorf("SelectDispatchedRun = %+v, %v, want run 101", run, ok)
+	}
+}
+
+// TestSelectDispatchedRunPrefersTheNewestNewRun covers several new runs of the
+// commit, which happens when someone else dispatches it at the same moment.
+func TestSelectDispatchedRunPrefersTheNewestNewRun(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 30, 0, time.UTC)
+	before := runFor(100, testFullSha, now.Add(-time.Hour))
+	existing := RunIDs([]WorkflowRun{before})
+
+	runs := []WorkflowRun{
+		runFor(101, testFullSha, now.Add(1*time.Second)),
+		runFor(103, testFullSha, now.Add(3*time.Second)),
+		runFor(102, testFullSha, now.Add(2*time.Second)),
+		before,
+	}
+	if run, ok := SelectDispatchedRun(runs, testFullSha, existing); !ok || run.DatabaseID != 103 {
+		t.Errorf("SelectDispatchedRun = %+v, %v, want run 103", run, ok)
+	}
+}
+
+// TestSelectDispatchedRunIgnoresOtherCommits covers a new run for another
+// commit never being selected.
+func TestSelectDispatchedRunIgnoresOtherCommits(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 30, 0, time.UTC)
+	other := runFor(101, strings.Repeat("e", 40), now)
+
+	if run, ok := SelectDispatchedRun([]WorkflowRun{other}, testFullSha, map[int64]bool{}); ok {
+		t.Errorf("SelectDispatchedRun chose run %d for another commit", run.DatabaseID)
+	}
+}
+
+// TestSelectDispatchedRunWithNoRunsBefore covers the first ever dispatch of the
+// workflow, when nothing existed before it, and a nil set.
+func TestSelectDispatchedRunWithNoRunsBefore(t *testing.T) {
+	now := time.Date(2026, 11, 27, 12, 0, 30, 0, time.UTC)
+	runs := []WorkflowRun{runFor(1, testFullSha, now)}
+
+	for name, existing := range map[string]map[int64]bool{"empty set": {}, "nil set": nil} {
+		if run, ok := SelectDispatchedRun(runs, testFullSha, existing); !ok || run.DatabaseID != 1 {
+			t.Errorf("%s: SelectDispatchedRun = %+v, %v, want run 1", name, run, ok)
+		}
+	}
+}
+
+// TestParseWorkflowRunsReadsGhOutput covers the fields gh run list prints.
+func TestParseWorkflowRunsReadsGhOutput(t *testing.T) {
 	runs, err := ParseWorkflowRuns([]byte(`[
-	  {"databaseId": 1, "displayTitle": "Head images for ` + strings.Repeat("f", 40) + `", "url": "u1", "createdAt": "2026-11-27T12:00:05Z"},
-	  {"databaseId": 2, "displayTitle": "` + title + `", "url": "u2", "createdAt": "2026-11-27T11:00:00Z"},
-	  {"databaseId": 3, "displayTitle": "` + title + `", "url": "u3", "createdAt": "2026-11-27T12:00:10Z"},
-	  {"databaseId": 4, "displayTitle": "` + title + `", "url": "u4", "createdAt": "2026-11-27T12:00:20Z"}
+	  {"databaseId": 42, "displayTitle": "Head images for ` + testFullSha + `", "url": "u", "createdAt": "2026-11-27T12:00:05Z"}
 	]`))
 	if err != nil {
 		t.Fatalf("ParseWorkflowRuns returned error: %v", err)
 	}
-
-	// assert the newest run for the commit after the dispatch is chosen
-	run, ok := SelectDispatchedRun(runs, testFullSha, dispatched)
-	if !ok || run.DatabaseID != 4 || run.URL != "u4" {
-		t.Errorf("SelectDispatchedRun = %+v, %v, want run 4", run, ok)
+	want := time.Date(2026, 11, 27, 12, 0, 5, 0, time.UTC)
+	if len(runs) != 1 || runs[0].DatabaseID != 42 || runs[0].URL != "u" || !runs[0].CreatedAt.Equal(want) ||
+		!strings.Contains(runs[0].DisplayTitle, testFullSha) {
+		t.Errorf("ParseWorkflowRuns = %+v", runs)
 	}
-
-	// assert an older run alone is not chosen
-	if run, ok := SelectDispatchedRun(runs[1:2], testFullSha, dispatched); ok {
-		t.Errorf("SelectDispatchedRun chose the earlier run %+v", run)
-	}
-
-	// assert a run within the clock skew allowance is chosen
-	early := []WorkflowRun{{DatabaseID: 5, DisplayTitle: title, CreatedAt: dispatched.Add(-10 * time.Second)}}
-	if _, ok := SelectDispatchedRun(early, testFullSha, dispatched.Add(-dispatchClockSkew)); !ok {
-		t.Error("SelectDispatchedRun missed a run inside the clock skew allowance")
-	}
-
-	// assert another commit finds nothing
-	if _, ok := SelectDispatchedRun(runs, strings.Repeat("e", 40), dispatched); ok {
-		t.Error("SelectDispatchedRun chose a run for another commit")
+	if _, err := ParseWorkflowRuns([]byte("not json")); err == nil {
+		t.Error("ParseWorkflowRuns accepted garbage")
 	}
 }
 

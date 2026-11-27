@@ -436,7 +436,7 @@ const (
 	// headImageRepo is the registry path release and Head images are pushed to.
 	headImageRepo = "ghcr.io/threeport"
 
-	// headRunLookupTimeout is how long to wait for GitHub to show the run that
+	// headRunLookupTimeout is how long to wait for GitHub to list the run that
 	// a dispatch started.
 	headRunLookupTimeout = 60 * time.Second
 
@@ -581,20 +581,27 @@ func (Release) Head() error {
 		firstProblem, _, _ := strings.Cut(checkErr.Error(), "\n")
 		fmt.Printf("Head images for %s are not all published yet (%s)\n", headVersion, firstProblem)
 
+		// note the runs that exist before dispatching, so that an earlier run
+		// of this commit, such as one that failed a moment ago, is never taken
+		// for the one this dispatch starts
+		existingRuns, err := util.ListWorkflowRuns(upstreamGhRepo, headImagesWorkflow)
+		if err != nil {
+			return err
+		}
+
 		// build them in CI
 		fmt.Printf("dispatching %s on %s for %s\n", headImagesWorkflow, branch, fullSha[:7])
-		dispatchedAt, err := util.DispatchWorkflow(
+		if err := util.DispatchWorkflow(
 			upstreamGhRepo, headImagesWorkflow, branch,
 			map[string]string{"commit": fullSha},
-		)
-		if err != nil {
+		); err != nil {
 			return err
 		}
 
 		// find the run it started and wait for it
 		run, err := util.FindDispatchedRun(
 			upstreamGhRepo, headImagesWorkflow, fullSha,
-			dispatchedAt, headRunLookupTimeout, headRunLookupInterval,
+			util.RunIDs(existingRuns), headRunLookupTimeout, headRunLookupInterval,
 		)
 		if err != nil {
 			return err

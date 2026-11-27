@@ -34,10 +34,11 @@ const (
 	// labelRevision is the OCI label that names the commit an image was built from.
 	labelRevision = "org.opencontainers.image.revision"
 
-	// dispatchClockSkew is how far before the local dispatch time a run may
-	// have been created and still count as ours, so skew between this machine
-	// and GitHub cannot hide the run.
-	dispatchClockSkew = 30 * time.Second
+	// workflowRunListLimit is how many of the newest runs of a workflow are
+	// listed. Runs that exist before a dispatch and runs found after it are
+	// listed with the same limit, so a run older than the first list cannot
+	// turn up in the second.
+	workflowRunListLimit = 50
 )
 
 var (
@@ -440,14 +441,27 @@ func ParseWorkflowRuns(data []byte) ([]WorkflowRun, error) {
 	return runs, nil
 }
 
+// RunIDs returns the ids of runs as a set.
+func RunIDs(runs []WorkflowRun) map[int64]bool {
+	ids := make(map[int64]bool, len(runs))
+	for _, run := range runs {
+		ids[run.DatabaseID] = true
+	}
+	return ids
+}
+
 // SelectDispatchedRun returns the newest run whose title contains fullSha and
-// that was created at or after notBefore.
-func SelectDispatchedRun(runs []WorkflowRun, fullSha string, notBefore time.Time) (WorkflowRun, bool) {
+// whose id is not in existing, the ids of the runs that were there before the
+// dispatch. A run that existed before cannot be the one a dispatch started, so
+// an earlier run of the same commit, such as one that failed a moment ago, is
+// never chosen, however recent it is. This does not depend on the clocks of
+// this machine and GitHub agreeing.
+func SelectDispatchedRun(runs []WorkflowRun, fullSha string, existing map[int64]bool) (WorkflowRun, bool) {
 	var found WorkflowRun
 	ok := false
 	for _, run := range runs {
-		// skip other commits and older runs
-		if !strings.Contains(run.DisplayTitle, fullSha) || run.CreatedAt.Before(notBefore) {
+		// skip other commits and runs from before the dispatch
+		if !strings.Contains(run.DisplayTitle, fullSha) || existing[run.DatabaseID] {
 			continue
 		}
 		if !ok || run.CreatedAt.After(found.CreatedAt) {
@@ -458,8 +472,8 @@ func SelectDispatchedRun(runs []WorkflowRun, fullSha string, notBefore time.Time
 }
 
 // DispatchWorkflow starts a workflow_dispatch run of workflowFile on ref in
-// the GitHub repository ghRepo, and returns the local time of the dispatch.
-func DispatchWorkflow(ghRepo, workflowFile, ref string, inputs map[string]string) (time.Time, error) {
+// the GitHub repository ghRepo.
+func DispatchWorkflow(ghRepo, workflowFile, ref string, inputs map[string]string) error {
 	args := []string{"workflow", "run", workflowFile, "--repo", ghRepo, "--ref", ref}
 
 	// pass inputs in a stable order
@@ -472,51 +486,62 @@ func DispatchWorkflow(ghRepo, workflowFile, ref string, inputs map[string]string
 		args = append(args, "-f", k+"="+inputs[k])
 	}
 
-	dispatchedAt := time.Now()
 	if out, err := exec.Command("gh", args...).CombinedOutput(); err != nil {
-		return time.Time{}, fmt.Errorf(
+		return fmt.Errorf(
 			"failed to dispatch %s (write access to %s is required): %w: %s",
 			workflowFile, ghRepo, err, strings.TrimSpace(string(out)),
 		)
 	}
-	return dispatchedAt, nil
+	return nil
 }
 
-// FindDispatchedRun polls gh run list until a workflow_dispatch run of
-// workflowFile for fullSha appears that was created after dispatchedAt, or
-// timeout passes.
+// ListWorkflowRuns returns the newest workflow_dispatch runs of workflowFile,
+// newest first.
+func ListWorkflowRuns(ghRepo, workflowFile string) ([]WorkflowRun, error) {
+	out, err := exec.Command(
+		"gh", "run", "list",
+		"--repo", ghRepo,
+		"--workflow", workflowFile,
+		"--event", "workflow_dispatch",
+		"--limit", strconv.Itoa(workflowRunListLimit),
+		"--json", "databaseId,displayTitle,url,createdAt",
+	).Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list runs of %s: %w", workflowFile, err)
+	}
+	return ParseWorkflowRuns(out)
+}
+
+// FindDispatchedRun polls until a workflow_dispatch run of workflowFile for
+// fullSha appears that is not in existing, the ids of the runs that were
+// listed before the dispatch (see ListWorkflowRuns and RunIDs), or timeout
+// passes.
+//
+// Take existing before dispatching, not after, or the run being waited for
+// could already be in it. A run of the same commit that someone else
+// dispatches in the moment between listing and dispatching cannot be told
+// apart from this one. It builds the same commit, and the workflow runs one
+// build of a commit at a time, so following it is harmless.
 func FindDispatchedRun(
 	ghRepo, workflowFile, fullSha string,
-	dispatchedAt time.Time,
+	existing map[int64]bool,
 	timeout, interval time.Duration,
 ) (WorkflowRun, error) {
-	notBefore := dispatchedAt.Add(-dispatchClockSkew)
 	deadline := time.Now().Add(timeout)
 
 	for {
-		// list recent dispatched runs of the workflow
-		out, err := exec.Command(
-			"gh", "run", "list",
-			"--repo", ghRepo,
-			"--workflow", workflowFile,
-			"--event", "workflow_dispatch",
-			"--limit", "20",
-			"--json", "databaseId,displayTitle,url,createdAt",
-		).Output()
-		if err != nil {
-			return WorkflowRun{}, fmt.Errorf("failed to list runs of %s: %w", workflowFile, err)
-		}
-		runs, err := ParseWorkflowRuns(out)
+		// look for a run that was not there before the dispatch
+		runs, err := ListWorkflowRuns(ghRepo, workflowFile)
 		if err != nil {
 			return WorkflowRun{}, err
 		}
-		if run, ok := SelectDispatchedRun(runs, fullSha, notBefore); ok {
+		if run, ok := SelectDispatchedRun(runs, fullSha, existing); ok {
 			return run, nil
 		}
 
 		if time.Now().After(deadline) {
 			return WorkflowRun{}, fmt.Errorf(
-				"no %s run for %s appeared within %s: see https://github.com/%s/actions/workflows/%s",
+				"no new %s run for %s appeared within %s: see https://github.com/%s/actions/workflows/%s",
 				workflowFile, fullSha[:7], timeout, ghRepo, workflowFile,
 			)
 		}
