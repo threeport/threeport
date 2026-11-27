@@ -1,0 +1,106 @@
+# Build and push the control plane images of a Head.
+#
+# A Head is an untagged build of a commit on a release branch (e.g. 0.7). Its
+# version is <contents of internal/version/version.txt>.<first 7 characters of
+# the commit sha>, e.g. v0.7.0-rc.6.a1b2c3d, and that one string is the image
+# tag, the image version label, the REST API /version response and the version
+# of a tptctl built from the same commit.
+#
+# This workflow is dispatched on demand, normally by `mage release:head`, so
+# that images are only built for the commits somebody runs. Dispatch it with
+# `--ref <release branch>` and the full commit sha:
+#
+#   gh workflow run head-images.yml --repo threeport/threeport --ref 0.7 \
+#     -f commit=<full 40-character sha>
+#
+# Any commit on the branch that supports Head builds is accepted, not only its
+# head, so an older Head can be rebuilt. A commit from before Head builds
+# existed is refused: the build runs the code of the commit being built, and
+# that code cannot stamp the Head version into its binaries.
+#
+# GitHub only allows dispatching a workflow whose file is on the default
+# branch, so this file must exist on main as well as on the release branches.
+# Dispatching with --ref 0.7 runs the copies of this file and of
+# _build-images.yml that are on 0.7, so main's copy of _build-images.yml does
+# not need the `ref` and `head_commit` inputs. A dispatch on main fails the
+# branch check below, as intended.
+#
+# Images go to the same GHCR packages as RC and OSR images, which are already
+# public. A new package path would be created private, and clusters would then
+# need pull secrets. Each run also leaves per-arch <tag>-amd64 and <tag>-arm64
+# tags, as releases do. Nothing cleans these up.
+
+name: Head Images
+run-name: Head images for ${{ inputs.commit }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Full 40-character SHA of a commit on this release branch.
+        type: string
+        required: true
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: head-images-${{ inputs.commit }}
+  cancel-in-progress: false
+
+jobs:
+  resolve:
+    name: resolve
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      short: ${{ steps.resolve.outputs.short }}
+    steps:
+    - name: Checkout
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      with:
+        fetch-depth: 0
+
+    # Everything is checked before any image is built. The inputs come in
+    # through env, never by interpolating them into the script.
+    - name: Validate commit and compute Head version
+      id: resolve
+      env:
+        COMMIT: ${{ inputs.commit }}
+      run: |
+        set -euo pipefail
+        [[ "$GITHUB_REF_TYPE" == "branch" && "$GITHUB_REF_NAME" =~ ^[0-9]+\.[0-9]+$ ]] \
+          || { echo "::error::dispatch from a release branch, not '$GITHUB_REF_NAME'"; exit 1; }
+        [[ "$COMMIT" =~ ^[0-9a-f]{40}$ ]] \
+          || { echo "::error::commit must be a full 40-character SHA"; exit 1; }
+        git merge-base --is-ancestor "$COMMIT" "origin/$GITHUB_REF_NAME" \
+          || { echo "::error::$COMMIT is not on $GITHUB_REF_NAME"; exit 1; }
+        # The build runs the code of $COMMIT, not of the branch head. A commit
+        # from before Head builds existed has no Commit in its version package
+        # and a BuildBinaries that ignores HEAD_COMMIT, so it would publish
+        # images tagged with the Head version whose /version reports the bare
+        # release version. The revision label cannot show that, so refuse such
+        # a commit here, before anything is built. TestHeadImagesStampingCheck
+        # in pkg/util/v0 fails if these patterns stop matching the source.
+        git grep -q -e '^var Commit string$' "$COMMIT" -- internal/version/version_gen.go \
+          && git grep -q -e 'VersionLdflags' "$COMMIT" -- pkg/util/v0/build.go \
+          || { echo "::error::$COMMIT predates Head build support, so its build cannot stamp the Head version into its binaries: build a later commit"; exit 1; }
+        version="$(git show "$COMMIT:internal/version/version.txt" | tr -d '[:space:]')"
+        # The version becomes an image tag, so it must look like a release version.
+        [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] \
+          || { echo "::error::internal/version/version.txt at $COMMIT is not a release version: '$version'"; exit 1; }
+        short="${COMMIT:0:7}"
+        echo "short=$short" >> "$GITHUB_OUTPUT"
+        echo "tag=$version.$short" >> "$GITHUB_OUTPUT"
+        echo "Head version: \`$version.$short\`" >> "$GITHUB_STEP_SUMMARY"
+
+  images:
+    needs: resolve
+    uses: ./.github/workflows/_build-images.yml
+    with:
+      ref: ${{ inputs.commit }}
+      tag: ${{ needs.resolve.outputs.tag }}
+      head_commit: ${{ needs.resolve.outputs.short }}
+      image_repo: ghcr.io/threeport
+    secrets: inherit

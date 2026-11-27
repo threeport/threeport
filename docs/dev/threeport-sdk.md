@@ -41,6 +41,16 @@ to core Threeport.  Any changes that need to be made to generated source code
 > Important: keep in mind these changes must be compatible with Threeport
 > extension development since the SDK is also used for that purpose.
 
+The SDK generates the `internal/version` package, which reports the project's
+version from `internal/version/version.txt`.  It also has a `Commit` variable,
+empty by default, that makes a [Head build](head-builds.md): when it is set,
+`GetVersion()` returns `<version>.<commit>`.  Builds set it by linking it in at
+`<module path>/internal/version.Commit`.  The mage build helpers do this for you
+when the `HEAD_COMMIT` environment variable is set to a 7-character short commit
+SHA, for core Threeport and for modules built from the SDK, once they
+regenerate.  A module that has not regenerated has no `Commit` variable, so the
+linker ignores the flag and its binaries report the unstamped version.
+
 For complete documentation on Threeport SDK usage, see the [Threeport
 documentation](https://threeport.io/).
 

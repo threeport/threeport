@@ -13,7 +13,9 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
+	"github.com/magefile/mage/mg"
 	"gopkg.in/yaml.v3"
 
 	version "github.com/threeport/threeport/internal/version"
@@ -368,15 +370,20 @@ func (Install) Tptdev() error {
 	return nil
 }
 
-// Tptctl builds tptctl binary.
+// Tptctl builds tptctl binary. When HEAD_COMMIT is set to a 7-character short
+// commit sha the binary is stamped with it, so that its version and its
+// default control plane image tag are the Head version <version.txt>.<sha>.
 func (Build) Tptctl() error {
-	buildTptctlCmd := exec.Command(
-		"go",
-		"build",
-		"-o",
-		"bin/tptctl",
-		"cmd/tptctl/main.go",
-	)
+	// stamp the Head commit into the version package when HEAD_COMMIT is set
+	ldflags, err := util.VersionLdflags(".")
+	if err != nil {
+		return fmt.Errorf("failed to stamp the tptctl build: %w", err)
+	}
+	args := []string{"build"}
+	args = append(args, ldflags...)
+	args = append(args, "-o", "bin/tptctl", "cmd/tptctl/main.go")
+
+	buildTptctlCmd := exec.Command("go", args...)
 	output, err := buildTptctlCmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("build failed for tptctl binary with output: '%s': %w", output, err)
@@ -407,6 +414,281 @@ func (Install) Tptctl() error {
 	}
 
 	fmt.Printf("tptctl binary installed and available at %s\n", outputPath)
+
+	return nil
+}
+
+// Release is the namespace for targets that publish builds.
+type Release mg.Namespace
+
+const (
+	// upstreamRepoURL is the upstream repository. Head builds compare against
+	// this URL and never against origin: engineers work from forks, where
+	// origin is the fork.
+	upstreamRepoURL = "https://github.com/threeport/threeport"
+
+	// upstreamGhRepo is the upstream repository as gh names it.
+	upstreamGhRepo = "threeport/threeport"
+
+	// headImagesWorkflow is the workflow that builds the images of a Head.
+	headImagesWorkflow = "head-images.yml"
+
+	// headImageRepo is the registry path release and Head images are pushed to.
+	headImageRepo = "ghcr.io/threeport"
+
+	// headRunLookupTimeout is how long to wait for GitHub to list the run that
+	// a dispatch started.
+	headRunLookupTimeout = 60 * time.Second
+
+	// headRunLookupInterval is how often to look for that run.
+	headRunLookupInterval = 3 * time.Second
+
+	// headImageCheckParallel is how many images are checked at once.
+	headImageCheckParallel = 8
+)
+
+// headImageArches are the architectures every Head image must have.
+var headImageArches = []string{"amd64", "arm64"}
+
+// headImageNames returns the images of a Head. It is the set that
+// package:allManifests stitches: the REST API, the database migrator, the
+// agent and every controller in the installer's list, so controllers added
+// to that list are covered without changing this.
+func headImageNames() []string {
+	images := []string{
+		installer.ThreeportRestApi.ImageName,
+		installer.DatabaseMigrator.ImageName,
+		installer.ThreeportAgent.ImageName,
+	}
+	for _, c := range installer.ThreeportControllerList {
+		images = append(images, c.ImageName)
+	}
+	return images
+}
+
+// headVersionOf returns the Head version, the full sha and the short sha of
+// the checked out commit. The version comes from version.txt on disk, because
+// mage caches its compiled binary and does not rebuild it when the version
+// package it imports changes.
+func headVersionOf(repoDir string) (headVersion, fullSha, shortSha string, err error) {
+	fullSha, err = util.GitFullSha(repoDir)
+	if err != nil {
+		return "", "", "", err
+	}
+	shortSha, err = util.ShortSha(fullSha)
+	if err != nil {
+		return "", "", "", err
+	}
+	baseVersion, err := util.ReadVersionFile(repoDir)
+	if err != nil {
+		return "", "", "", err
+	}
+	headVersion, err = util.HeadVersion(baseVersion, fullSha)
+	if err != nil {
+		return "", "", "", err
+	}
+	return headVersion, fullSha, shortSha, nil
+}
+
+// checkHeadImages verifies that every image of a Head exists as a multi-arch
+// image built from fullSha.
+func checkHeadImages(headVersion, fullSha string) error {
+	return util.CheckHeadImages(
+		headImageRepo,
+		headImageNames(),
+		headVersion,
+		fullSha,
+		headImageArches,
+		headImageCheckParallel,
+	)
+}
+
+// installHeadTptctl builds tptctl stamped with shortSha, installs it, and
+// confirms that the installed binary reports headVersion. It returns where it
+// installed tptctl.
+func installHeadTptctl(headVersion, shortSha string) (string, error) {
+	// build.Tptctl reads HEAD_COMMIT, so set it for the install only
+	err := util.WithEnv(util.HeadCommitEnv, shortSha, func() error {
+		return (Install{}).Tptctl()
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to install tptctl: %w", err)
+	}
+
+	// a stamped build that reports anything else would install the wrong images
+	installedPath := filepath.Join(installDir(), "tptctl")
+	output, err := exec.Command(installedPath, "version").Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to run the installed tptctl at %s: %w", installedPath, err)
+	}
+	if reported := strings.TrimSpace(string(output)); reported != headVersion {
+		return "", fmt.Errorf(
+			"the tptctl installed at %s reports version %q, expected %q",
+			installedPath, reported, headVersion,
+		)
+	}
+
+	return installedPath, nil
+}
+
+// Head builds and pushes the Head images of the current commit through CI,
+// then installs a matching tptctl. A Head build is an untagged build of a
+// commit on a release branch, versioned <version.txt>.<first 7 characters of
+// the commit sha>. Run it from a clean checkout of a release branch at
+// upstream's head. Images that already exist are not built again. See
+// docs/dev/head-builds.md.
+func (Release) Head() error {
+	repoDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get the working directory: %w", err)
+	}
+
+	// check the tools and the gh login
+	if err := util.RequireTools("git", "gh", "docker"); err != nil {
+		return err
+	}
+	if err := util.RequireDockerBuildx(); err != nil {
+		return err
+	}
+	if err := util.RequireGhAuth(); err != nil {
+		return err
+	}
+
+	// build only from a release branch, a clean tree and a commit upstream has
+	branch, err := util.RequireReleaseBranch(repoDir)
+	if err != nil {
+		return err
+	}
+	if err := util.RequireCleanTree(repoDir); err != nil {
+		return err
+	}
+	if _, err := util.RequireAtUpstreamHead(repoDir, upstreamRepoURL, branch); err != nil {
+		return err
+	}
+
+	// compute the version every artifact of this Head carries
+	headVersion, fullSha, shortSha, err := headVersionOf(repoDir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Head version: %s (commit %s on %s)\n", headVersion, fullSha, branch)
+
+	// skip the build when the images are already there
+	runURL := ""
+	if checkErr := checkHeadImages(headVersion, fullSha); checkErr == nil {
+		fmt.Printf("Head images for %s already exist: not building them again\n", headVersion)
+	} else {
+		firstProblem, _, _ := strings.Cut(checkErr.Error(), "\n")
+		fmt.Printf("Head images for %s are not all published yet (%s)\n", headVersion, firstProblem)
+
+		// note the runs that exist before dispatching, so that an earlier run
+		// of this commit, such as one that failed a moment ago, is never taken
+		// for the one this dispatch starts
+		existingRuns, err := util.ListWorkflowRuns(upstreamGhRepo, headImagesWorkflow)
+		if err != nil {
+			return err
+		}
+
+		// build them in CI
+		fmt.Printf("dispatching %s on %s for %s\n", headImagesWorkflow, branch, fullSha[:7])
+		if err := util.DispatchWorkflow(
+			upstreamGhRepo, headImagesWorkflow, branch,
+			map[string]string{"commit": fullSha},
+		); err != nil {
+			return err
+		}
+
+		// find the run it started and wait for it
+		run, err := util.FindDispatchedRun(
+			upstreamGhRepo, headImagesWorkflow, fullSha,
+			util.RunIDs(existingRuns), headRunLookupTimeout, headRunLookupInterval,
+		)
+		if err != nil {
+			return err
+		}
+		runURL = run.URL
+		fmt.Printf("workflow run: %s\n", run.URL)
+		if err := util.WatchRun(upstreamGhRepo, run.DatabaseID); err != nil {
+			return fmt.Errorf("the %s run failed, tptctl was not installed: see %s: %w", headImagesWorkflow, run.URL, err)
+		}
+	}
+
+	// verify what is in the registry before installing anything
+	if err := checkHeadImages(headVersion, fullSha); err != nil {
+		return fmt.Errorf("the Head images for %s failed verification, tptctl was not installed:\n%w", headVersion, err)
+	}
+	fmt.Printf("verified %d Head images for %s\n", len(headImageNames()), headVersion)
+
+	// install the matching tptctl
+	installedPath, err := installHeadTptctl(headVersion, shortSha)
+	if err != nil {
+		return err
+	}
+
+	// summarize
+	fmt.Println()
+	fmt.Println("Head build ready")
+	fmt.Printf("  version:      %s\n", headVersion)
+	if runURL != "" {
+		fmt.Printf("  workflow run: %s\n", runURL)
+	}
+	fmt.Printf("  tptctl:       %s\n", installedPath)
+	fmt.Printf("  tptctl version prints: %s\n", headVersion)
+	fmt.Println()
+	fmt.Println("tptctl up and tptctl upgrade control-plane ... now default to these Head images:")
+	fmt.Println("--control-plane-image-tag is not needed.")
+
+	return nil
+}
+
+// TptctlHead builds tptctl for a Head whose images already exist and installs
+// it in $GOBIN (or $GOPATH/bin). Use it when someone else ran release:head, or
+// to match a control plane that runs a Head build. Check out the commit first;
+// a detached HEAD is fine. See docs/dev/head-builds.md.
+func (Install) TptctlHead() error {
+	repoDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get the working directory: %w", err)
+	}
+
+	// check the tools
+	if err := util.RequireTools("git", "docker"); err != nil {
+		return err
+	}
+	if err := util.RequireDockerBuildx(); err != nil {
+		return err
+	}
+
+	// build from exactly the checked out commit
+	if err := util.RequireCleanTree(repoDir); err != nil {
+		return err
+	}
+
+	// compute the version every artifact of this Head carries
+	headVersion, fullSha, shortSha, err := headVersionOf(repoDir)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Head version: %s (commit %s)\n", headVersion, fullSha)
+
+	// the images can only exist if head-images.yml built this exact commit
+	if err := checkHeadImages(headVersion, fullSha); err != nil {
+		return fmt.Errorf(
+			"there are no matching Head images for %s:\n%w\n\n"+
+				"  - to build this commit, run 'mage release:head' from the release branch\n"+
+				"  - or check out the commit the control plane actually runs",
+			headVersion, err,
+		)
+	}
+	fmt.Printf("verified %d Head images for %s\n", len(headImageNames()), headVersion)
+
+	// install the matching tptctl
+	installedPath, err := installHeadTptctl(headVersion, shortSha)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("tptctl version prints: %s\n", headVersion)
+	fmt.Printf("tptctl installed at %s\n", installedPath)
 
 	return nil
 }

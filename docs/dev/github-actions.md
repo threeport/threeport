@@ -36,6 +36,48 @@ on your filesystem (NOT in any repo) and reference it in the command with the
 `-s` flag.  The `act` CLI tool has a flag for referencing an `--env-file` but
 this didn't work as expected.  The command above does.
 
+## Head Images
+
+`.github/workflows/head-images.yml` builds and pushes the control plane images
+of a Head: an untagged build of a commit on a release branch.  It is
+dispatched on demand, normally by `mage release:head`, with the full 40-character
+SHA of the commit.  See [Head Builds](head-builds.md).
+
+Before it builds anything, it checks that it was dispatched from a release
+branch (a name like `0.7`), that the input is a full SHA, that the commit is on
+that branch and that the commit supports Head builds, and it computes the Head
+version from `version.txt` as of that commit.  The last check is there because
+the build runs the code of the commit being built, not of the branch head.  A
+commit from before Head builds existed has no `Commit` in its version package and
+a build that ignores `HEAD_COMMIT`, so it would publish images tagged with the
+Head version whose `/version` reports the bare release version.  Checking the
+revision label would not show that.  Such a commit is refused before anything
+is built.  Then it calls `.github/workflows/_build-images.yml`, the same reusable
+workflow `release.yml` calls, with these optional inputs:
+
+* `ref` - the commit to check out and build.  The workflow is dispatched from a
+  branch, but the commit being built need not be its head.
+* `head_commit` - the 7-character short SHA, exported as `HEAD_COMMIT` so
+  that it is stamped into the binaries.
+
+Both default to an empty string.  With both empty, as in `release.yml`, the
+workflow behaves as it always has.  Whatever commit it checks out,
+`org.opencontainers.image.revision` is set from `git rev-parse HEAD` after
+checkout, so the label always names the commit that was built.
+
+Workflow inputs reach `run` steps only through `env`, never by interpolating
+them into the script, and every action is pinned to a commit SHA.
+
+GitHub only allows dispatching a workflow whose file is on the default branch.
+This is why `head-images.yml` must exist on `main` as well as on the release
+branches.  Add it to `main` in a separate small PR.  Dispatching with
+`--ref 0.7` runs the copies of `head-images.yml` and `_build-images.yml` that are
+on `0.7`, so the copy of `_build-images.yml` on `main` does not need the new
+inputs.  A dispatch from `main` fails the branch check, as intended.
+
+Anyone with write access to `threeport/threeport` can run it, which is what
+`gh workflow run` requires.
+
 ## Release Cloning
 
 Until this repo is publicly released, we need to clone releases from this

@@ -18,6 +18,17 @@
 # Component list is owned by mage (`Build.AllImages` /
 # `Package.AllManifests`), so this workflow doesn't need to maintain it.
 #
+# Callers:
+#   - release.yml builds the tagged commit of an RC or OSR release. It passes
+#     only `tag` and `image_repo`, and every optional input stays empty.
+#   - head-images.yml builds a Head: an untagged commit on a release branch.
+#     It passes `ref` to build that commit rather than the dispatched ref, and
+#     `head_commit` to stamp the short sha into the binaries so that
+#     `/version` reports the same string as the image tag.
+#
+# Inputs reach `run` steps only through `env`, never by interpolating them
+# into the script, so a value cannot inject shell.
+#
 # Caches:
 #   - actions/cache holds ~/.cache/go-build + ~/go/pkg/mod and is keyed
 #     by go.sum. Shared across all component builds within an arch cell;
@@ -45,6 +56,16 @@ on:
         type: string
         required: false
         default: 'amd64,arm64'
+      ref:
+        description: Commit to check out and build. Empty builds the ref that triggered the run.
+        type: string
+        required: false
+        default: ''
+      head_commit:
+        description: 7-character short sha to stamp into the binaries as HEAD_COMMIT. Empty for RC and OSR builds.
+        type: string
+        required: false
+        default: ''
     secrets:
       GH_ACCESS_TOKEN:
         description: "Token for ghcr.io login. Caller passes via `secrets: inherit`."
@@ -67,6 +88,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      with:
+        ref: ${{ inputs.ref }}
 
     - name: Set up Go
       uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -113,14 +136,26 @@ jobs:
         PARALLEL_IMAGE_BUILD: "4"
         # OCI image label values. BuildImage reads these and stamps them
         # onto the release stage via Dockerfile ARG/LABEL.
-        GIT_REVISION: ${{ github.sha }}
         GIT_TAG: ${{ inputs.tag }}
+        # Stamps the short sha into every binary as the version package's
+        # Commit when building a Head. Empty for RC and OSR builds, which are
+        # then built exactly as before.
+        HEAD_COMMIT: ${{ inputs.head_commit }}
+        # Inputs for the script. The WF_ prefix keeps them clear of variables
+        # the build reads, such as IMAGE_TAG.
+        WF_IMAGE_REPO: ${{ inputs.image_repo }}
+        WF_IMAGE_TAG: ${{ inputs.tag }}
+        WF_ARCH: ${{ matrix.arch }}
       run: |
         export BUILD_CREATED="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        # Name the commit that was checked out. It is github.sha only when
+        # `ref` is empty: a Head build checks out a commit other than the one
+        # the workflow was dispatched from.
+        export GIT_REVISION="$(git rev-parse HEAD)"
         mage build:allImages \
-          ${{ inputs.image_repo }} \
-          ${{ inputs.tag }}-${{ matrix.arch }} \
-          ${{ matrix.arch }}
+          "$WF_IMAGE_REPO" \
+          "$WF_IMAGE_TAG-$WF_ARCH" \
+          "$WF_ARCH"
 
   manifest:
     name: manifest
@@ -131,6 +166,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      with:
+        ref: ${{ inputs.ref }}
 
     - name: Set up Go
       uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
@@ -156,8 +193,11 @@ jobs:
         # imagetools create is light (manifest-only, no blob upload), so
         # we can fan out wider than the build phase.
         PARALLEL_IMAGE_BUILD: "8"
+        WF_IMAGE_REPO: ${{ inputs.image_repo }}
+        WF_IMAGE_TAG: ${{ inputs.tag }}
+        WF_ARCHES: ${{ inputs.arches }}
       run: |
         mage package:allManifests \
-          ${{ inputs.image_repo }} \
-          ${{ inputs.tag }} \
-          ${{ inputs.arches }}
+          "$WF_IMAGE_REPO" \
+          "$WF_IMAGE_TAG" \
+          "$WF_ARCHES"

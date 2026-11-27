@@ -24,13 +24,21 @@ import (
 // binary; per-image targets use this form for standalone use, and pick up
 // a Go cache hit when AllImages pre-built the same package earlier.
 // noCache=true passes -a to force a full rebuild ignoring Go's local
-// build cache.
+// build cache. When HEAD_COMMIT is set, every binary is stamped with it as
+// the Commit of the version package, which makes a Head build.
 func BuildBinaries(
 	threeportPath string,
 	arches []string,
 	packageDirs []string,
 	noCache bool,
 ) error {
+	// resolve the Head commit stamp once, so a bad HEAD_COMMIT fails the
+	// build before any arch starts instead of once per arch
+	ldflags, err := VersionLdflags(threeportPath)
+	if err != nil {
+		return fmt.Errorf("failed to stamp the build: %w", err)
+	}
+
 	tasks := make([]func() error, 0, len(arches))
 	for _, a := range arches {
 		arch := strings.TrimSpace(a)
@@ -38,22 +46,16 @@ func BuildBinaries(
 			continue
 		}
 		tasks = append(tasks, func() error {
-			return buildArchBinaries(threeportPath, arch, packageDirs, noCache)
+			return buildArchBinaries(threeportPath, arch, packageDirs, noCache, ldflags)
 		})
 	}
 	return RunParallel(len(tasks), tasks)
 }
 
-// buildArchBinaries runs one go build for the given arch that compiles
-// every package dir into bin/<arch>/<name>. Shared dependency compilation
-// within the invocation means a cold build is much faster than running
-// one go build per binary.
-func buildArchBinaries(threeportPath, arch string, packageDirs []string, noCache bool) error {
-	outDir := filepath.Join(threeportPath, "bin", arch)
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		return fmt.Errorf("failed to create output directory %s: %w", outDir, err)
-	}
-
+// goBuildArgs returns the go build arguments that compile every package dir
+// into bin/<arch>/<name>. ldflags are extra build flags, such as the Head
+// commit stamp from VersionLdflags; nil leaves the build unstamped.
+func goBuildArgs(arch string, packageDirs []string, noCache bool, ldflags []string) []string {
 	// -buildvcs=false skips Go's git probe. It trips on worktree-shaped
 	// checkouts and some symlinked workspace layouts, and we don't
 	// consume the embedded VCS info anyway (OCI labels on built images
@@ -62,6 +64,7 @@ func buildArchBinaries(threeportPath, arch string, packageDirs []string, noCache
 	if noCache {
 		args = append(args, "-a")
 	}
+	args = append(args, ldflags...)
 	// PARALLEL_GO_BUILD caps concurrent compile workers per go build
 	// invocation. CI sets it (e.g. 2) to keep memory bounded on small
 	// runners; locally we leave it unset so the Go default (GOMAXPROCS)
@@ -78,6 +81,25 @@ func buildArchBinaries(threeportPath, arch string, packageDirs []string, noCache
 		}
 		args = append(args, dir)
 	}
+	return args
+}
+
+// buildArchBinaries runs one go build for the given arch that compiles
+// every package dir into bin/<arch>/<name>. Shared dependency compilation
+// within the invocation means a cold build is much faster than running
+// one go build per binary.
+func buildArchBinaries(
+	threeportPath, arch string,
+	packageDirs []string,
+	noCache bool,
+	ldflags []string,
+) error {
+	outDir := filepath.Join(threeportPath, "bin", arch)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		return fmt.Errorf("failed to create output directory %s: %w", outDir, err)
+	}
+
+	args := goBuildArgs(arch, packageDirs, noCache, ldflags)
 
 	fmt.Printf("go %s\n", strings.Join(args, " "))
 

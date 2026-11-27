@@ -26,13 +26,25 @@ func GenVersionPackage() error {
 	f.HeaderComment(sdk.HeaderCommentGenNoEdit)
 	f.Anon("embed")
 
-	f.Comment("Version is a constant variable containing the version")
+	f.Comment("Version is the version in version.txt.")
 	f.Comment(fmt.Sprintf("//go:embed %s", getVersionFilename()))
 	f.Var().Id("Version").String()
 
-	f.Comment("GetVersion Returns REST API Version")
+	// Commit is a separate variable because the linker's -X flag cannot set a
+	// go:embed variable.
+	f.Comment("Commit is the 7-character short commit SHA of a Head build.  It is set at")
+	f.Comment("build time with the following linker flag and is empty for RC and OSR builds:")
+	f.Comment("")
+	f.Comment("\t-ldflags \"-X <module path>/internal/version.Commit=<short sha>\"")
+	f.Var().Id("Commit").String()
+
+	f.Comment("GetVersion returns the version.  A Head build returns <version>.<commit>.")
 	f.Func().Id("GetVersion").Params().String().Block(
-		Return(Qual("strings", "TrimSuffix").Call(Id("Version"), Lit("\n"))),
+		Id("v").Op(":=").Qual("strings", "TrimSuffix").Call(Id("Version"), Lit("\n")),
+		If(Id("Commit").Op("!=").Lit("")).Block(
+			Return(Id("v").Op("+").Lit(".").Op("+").Id("Commit")),
+		),
+		Return(Id("v")),
 	)
 
 	versionPath := filepath.Join("internal", "version")
