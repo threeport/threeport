@@ -15,6 +15,9 @@ const (
 	LabelPersistentValue = "true"
 	// Label key for the control plane availability and data retention level
 	LabelTier = "threeport.io/tier"
+	// Label key on a cluster-scoped binding naming the control plane namespace that
+	// owns it, so the teardown can find it once the namespace is gone
+	LabelControlPlaneNamespace = "threeport.io/control-plane-namespace"
 	// Label key naming the install a workload belongs to
 	LabelInstall = "threeport.io/install"
 	// Label key naming the control plane that may update the support services operator

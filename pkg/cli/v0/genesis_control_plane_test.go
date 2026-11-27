@@ -411,14 +411,16 @@ var _ provider.KubernetesRuntimeInfra = (*fakeRuntimeInfra)(nil)
 
 // newTeardownKubeClient returns a fake cluster holding objects that the
 // uninstall can run against. The uninstall lists the persistent volumes
-// behind the control plane's claims before deleting its namespace, and the
-// fake client can list only the kinds it is told about.
+// behind the control plane's claims before deleting its namespace and the
+// cluster role bindings after it, and the fake client can list only the kinds
+// it is told about.
 func newTeardownKubeClient(objects ...runtime.Object) *dynamicfake.FakeDynamicClient {
 	return dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
 		runtime.NewScheme(),
 		map[schema.GroupVersionResource]string{
-			{Version: "v1", Resource: "namespaces"}:        "NamespaceList",
-			{Version: "v1", Resource: "persistentvolumes"}: "PersistentVolumeList",
+			{Version: "v1", Resource: "namespaces"}:                                              "NamespaceList",
+			{Version: "v1", Resource: "persistentvolumes"}:                                       "PersistentVolumeList",
+			{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}: "ClusterRoleBindingList",
 		},
 		objects...,
 	)
