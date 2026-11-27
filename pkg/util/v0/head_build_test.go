@@ -605,3 +605,43 @@ func TestReadVersionFileTrimsWhitespace(t *testing.T) {
 		t.Error("ReadVersionFile succeeded without a version file")
 	}
 }
+
+// TestHeadImagesStampingCheck covers the check in head-images.yml that refuses
+// a commit from before Head builds existed, because the build runs the code of
+// the commit being built and that code could not stamp the Head version. The
+// workflow finds support with a grep of the commit's source, so the patterns
+// must keep matching the current source, and the workflow must keep using
+// them. Change both together.
+func TestHeadImagesStampingCheck(t *testing.T) {
+	root := filepath.Join("..", "..", "..")
+
+	read := func(path string) string {
+		t.Helper()
+		data, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", path, err)
+		}
+		return string(data)
+	}
+
+	// assert the version package still declares Commit on a line of its own
+	if !slices.Contains(strings.Split(read("internal/version/version_gen.go"), "\n"), "var Commit string") {
+		t.Error("internal/version/version_gen.go has no line 'var Commit string', which head-images.yml looks for")
+	}
+
+	// assert the build code still applies the stamp
+	if !strings.Contains(read("pkg/util/v0/build.go"), "VersionLdflags") {
+		t.Error("pkg/util/v0/build.go does not use VersionLdflags, which head-images.yml looks for")
+	}
+
+	// assert the workflow still looks for exactly these
+	workflow := read(".github/workflows/head-images.yml")
+	for _, want := range []string{
+		`git grep -q -e '^var Commit string$' "$COMMIT" -- internal/version/version_gen.go`,
+		`git grep -q -e 'VersionLdflags' "$COMMIT" -- pkg/util/v0/build.go`,
+	} {
+		if !strings.Contains(workflow, want) {
+			t.Errorf("head-images.yml no longer contains the check %q", want)
+		}
+	}
+}

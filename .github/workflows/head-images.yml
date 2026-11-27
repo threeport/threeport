@@ -13,8 +13,10 @@
 #   gh workflow run head-images.yml --repo threeport/threeport --ref 0.7 \
 #     -f commit=<full 40-character sha>
 #
-# Any commit on the branch is accepted, not only its head, so an older Head
-# can be rebuilt.
+# Any commit on the branch that supports Head builds is accepted, not only its
+# head, so an older Head can be rebuilt. A commit from before Head builds
+# existed is refused: the build runs the code of the commit being built, and
+# that code cannot stamp the Head version into its binaries.
 #
 # GitHub only allows dispatching a workflow whose file is on the default
 # branch, so this file must exist on main as well as on the release branches.
@@ -74,6 +76,16 @@ jobs:
           || { echo "::error::commit must be a full 40-character SHA"; exit 1; }
         git merge-base --is-ancestor "$COMMIT" "origin/$GITHUB_REF_NAME" \
           || { echo "::error::$COMMIT is not on $GITHUB_REF_NAME"; exit 1; }
+        # The build runs the code of $COMMIT, not of the branch head. A commit
+        # from before Head builds existed has no Commit in its version package
+        # and a BuildBinaries that ignores HEAD_COMMIT, so it would publish
+        # images tagged with the Head version whose /version reports the bare
+        # release version. The revision label cannot show that, so refuse such
+        # a commit here, before anything is built. TestHeadImagesStampingCheck
+        # in pkg/util/v0 fails if these patterns stop matching the source.
+        git grep -q -e '^var Commit string$' "$COMMIT" -- internal/version/version_gen.go \
+          && git grep -q -e 'VersionLdflags' "$COMMIT" -- pkg/util/v0/build.go \
+          || { echo "::error::$COMMIT predates Head build support, so its build cannot stamp the Head version into its binaries: build a later commit"; exit 1; }
         version="$(git show "$COMMIT:internal/version/version.txt" | tr -d '[:space:]')"
         # The version becomes an image tag, so it must look like a release version.
         [[ "$version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] \

@@ -155,7 +155,8 @@ computes the Head version of the checked out commit and verifies that the images
 exist and were built from this exact commit.  Then it installs `tptctl` and
 prints its version.  Because it only reads the registry, it never builds
 images.  They can only exist if `head-images.yml` built that commit, and
-`head-images.yml` only accepts commits on a release branch.
+`head-images.yml` only accepts commits on a release branch that support Head
+builds.
 
 ## Install or upgrade a control plane with a Head `tptctl`
 
@@ -185,13 +186,21 @@ Passing `--control-plane-image-tag` still overrides the default.
 
 `.github/workflows/head-images.yml` is a `workflow_dispatch` workflow.  It
 checks that it was dispatched from a release branch, that the input is a full
-40-character SHA and that the commit is on that branch, and computes the Head
-version from `version.txt` as of that commit, all before building anything.
-Then it calls `_build-images.yml` to build and push the images.  See
-[Github Actions](github-actions.md).
+40-character SHA, that the commit is on that branch and that the commit supports
+Head builds, and computes the Head version from `version.txt` as of that commit,
+all before building anything.  Then it calls `_build-images.yml` to build and
+push the images.  See [Github Actions](github-actions.md).
 
-Any commit on the branch is accepted, not only its head, so an older Head can be
-rebuilt.  `mage release:head` always sends the current head.
+Any commit on the branch that supports Head builds is accepted, not only its
+head, so an older Head can be rebuilt.  `mage release:head` always sends the
+current head.
+
+A commit from before Head builds existed is refused.  The build runs the code of
+the commit being built, and that code does not stamp the commit into its
+binaries, so the images would carry a Head tag while their `/version` reported
+the bare release version.  The revision label would not show that.  The check
+looks for the `Commit` variable in the commit's `internal/version` package and
+for `VersionLdflags` in its `pkg/util/v0/build.go`.
 
 To dispatch it by hand:
 
@@ -218,6 +227,10 @@ including untracked ones.  `go.mod` and `go.sum` are not exempt.
 **Local `HEAD` is not at the head of the branch upstream.**  If your checkout is
 behind, pull from upstream and run it again.  If it is ahead or has diverged,
 Head builds only come from commits merged upstream.
+
+**The workflow run fails with `predates Head build support`.**  The commit is
+from before Head builds were added to the release branch, so it cannot stamp the
+Head version into its binaries.  Build a later commit.
 
 **The workflow run failed.**  The target exits non-zero without installing
 `tptctl` and prints the run URL.  Fix the cause and run `mage release:head`

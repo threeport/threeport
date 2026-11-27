@@ -44,9 +44,15 @@ dispatched on demand, normally by `mage release:head`, with the full 40-characte
 SHA of the commit.  See [Head Builds](head-builds.md).
 
 Before it builds anything, it checks that it was dispatched from a release
-branch (a name like `0.7`), that the input is a full SHA and that the commit is on
-that branch, and it computes the Head version from `version.txt` as of that
-commit.  Then it calls `.github/workflows/_build-images.yml`, the same reusable
+branch (a name like `0.7`), that the input is a full SHA, that the commit is on
+that branch and that the commit supports Head builds, and it computes the Head
+version from `version.txt` as of that commit.  The last check is there because
+the build runs the code of the commit being built, not of the branch head.  A
+commit from before Head builds existed has no `Commit` in its version package and
+a build that ignores `HEAD_COMMIT`, so it would publish images tagged with the
+Head version whose `/version` reports the bare release version.  Checking the
+revision label would not show that.  Such a commit is refused before anything
+is built.  Then it calls `.github/workflows/_build-images.yml`, the same reusable
 workflow `release.yml` calls, with these optional inputs:
 
 * `ref` - the commit to check out and build.  The workflow is dispatched from a
