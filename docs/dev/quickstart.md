@@ -82,6 +82,11 @@ tptctl up \
 This will start a local kind cluster and install the control plane.  You can now
 make calls to the API server.
 
+These images are built from your working tree and tagged with the version in
+`version.txt`.  They are not Head builds: local builds do not set `HEAD_COMMIT`.
+To run published images of a commit on a release branch instead, see [Head
+builds](head-builds.md).
+
 Call the API.  Note this is a different port than the local container registry
 (`localhost:5001`).  A local control plane serves its API on an unprivileged
 port: `8080` without auth, as installed above, and `8443` with it.  `--api-port`

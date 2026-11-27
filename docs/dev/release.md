@@ -38,6 +38,15 @@ release candidate version format with the rc suffix.
 export RELEASE_VERSION=v0.4.0-rc.2 && make release
 ```
 
+## Versions Between Releases
+
+`internal/version/version.txt` sets the version of every RC and OSR build.
+Between RCs, an engineer can build a commit on the release branch on demand.  A
+build like that is called a Head build.  Its version is `version.txt` followed by
+`.` and the first 7 characters of the commit SHA, e.g. `v0.7.0-rc.6.a1b2c3d`.
+RC and OSR builds never set a commit, so their versions are exactly what
+`version.txt` says.  See [Head Builds](head-builds.md).
+
 ## Failed Release CI
 
 Should the CI process for a release fail, take the following steps.

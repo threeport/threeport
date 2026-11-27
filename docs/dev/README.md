@@ -3,6 +3,9 @@
 To get started with a development environment, see our [Quickstart
 Guide](quickstart.md) and [Contribuing Guide](contributing.md).
 
+To run a control plane from a commit on a release branch that has not been
+released yet, see [Head Builds](head-builds.md).
+
 ## Overview
 
 This threeport repo contains the core components of the threeport control plane.

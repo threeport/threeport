@@ -7,12 +7,22 @@ import (
 	"strings"
 )
 
-// Version is a constant variable containing the version
+// Version is the version in version.txt.
 //
 //go:embed version.txt
 var Version string
 
-// GetVersion Returns REST API Version
+// Commit is the 7-character short commit SHA of a Head build.  It is set at
+// build time with the following linker flag and is empty for RC and OSR builds:
+//
+//	-ldflags "-X <module path>/internal/version.Commit=<short sha>"
+var Commit string
+
+// GetVersion returns the version.  A Head build returns <version>.<commit>.
 func GetVersion() string {
-	return strings.TrimSuffix(Version, "\n")
+	v := strings.TrimSuffix(Version, "\n")
+	if Commit != "" {
+		return v + "." + Commit
+	}
+	return v
 }

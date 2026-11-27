@@ -27,14 +27,14 @@ func ResolveImageTag(repoDir, versionDefault string) (string, error) {
 		// warn when uncommitted source is not go.mod or go.sum
 		warnIfDirtyOnce(repoDir)
 
-		// read the short sha
-		sha, err := gitShortSha(repoDir)
+		// suffix the version with the short sha
+		tag, err := headVersionAt(repoDir, versionDefault)
 
 		// use the bare version when the sha cannot be read
 		if err != nil {
 			return versionDefault, nil
 		}
-		return joinImageTag(versionDefault, sha), nil
+		return tag, nil
 	}
 
 	// echo the ref name on a tag build
@@ -43,26 +43,19 @@ func ResolveImageTag(repoDir, versionDefault string) (string, error) {
 	}
 
 	// suffix the version with the short sha, or return the git error
-	sha, err := gitShortSha(repoDir)
+	return headVersionAt(repoDir, versionDefault)
+}
+
+// headVersionAt returns version.sha for the HEAD commit of repoDir, using
+// the same exactly-seven-character truncation as a Head build. The empty
+// repoDir reads the repository of the process directory.
+func headVersionAt(repoDir, version string) (string, error) {
+	// read the full HEAD sha
+	sha, err := GitFullSha(repoDir)
 	if err != nil {
 		return "", err
 	}
-	return joinImageTag(versionDefault, sha), nil
-}
-
-// joinImageTag joins a version and a short sha into version.sha.
-func joinImageTag(version, sha string) string {
-	return version + "." + sha
-}
-
-// gitShortSha returns the abbreviated HEAD sha of repoDir, at least seven characters.
-func gitShortSha(repoDir string) (string, error) {
-	// read the abbreviated HEAD sha
-	out, err := gitCommand(repoDir, "rev-parse", "--short=7", "HEAD").Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to read short commit sha: %w", err)
-	}
-	return strings.TrimSpace(string(out)), nil
+	return HeadVersion(version, sha)
 }
 
 // gitCommand returns a git command that runs in repoDir when set.

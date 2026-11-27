@@ -157,7 +157,8 @@ func TestResolveImageTagIgnoresArch(t *testing.T) {
 }
 
 // initRepo creates a temp git repo with one empty commit and returns its
-// directory and --short=7 HEAD sha. Callers must already have cleared git redirects.
+// directory and the first seven characters of its HEAD sha. Callers must
+// already have cleared git redirects.
 func initRepo(t *testing.T) (dir, sha string) {
 	t.Helper()
 
@@ -178,12 +179,12 @@ func initRepo(t *testing.T) (dir, sha string) {
 		}
 	}
 
-	// read the --short=7 HEAD sha
-	out, err := exec.Command("git", "-C", dir, "rev-parse", "--short=7", "HEAD").Output()
+	// read the full HEAD sha and truncate it
+	out, err := exec.Command("git", "-C", dir, "rev-parse", "HEAD").Output()
 	if err != nil {
 		t.Fatalf("failed to read fixture repo sha: %v", err)
 	}
-	return dir, strings.TrimSpace(string(out))
+	return dir, strings.TrimSpace(string(out))[:7]
 }
 
 // TestResolveImageTagReadsShaFromRepoDir covers the short sha coming from the
@@ -214,11 +215,22 @@ func TestResolveImageTagReadsShaFromRepoDir(t *testing.T) {
 	}
 }
 
-// TestJoinImageTagJoinsVersionAndSha covers version and sha joined by a dot.
-func TestJoinImageTagJoinsVersionAndSha(t *testing.T) {
+// TestHeadVersionAtJoinsVersionAndShortSha covers the version and the first
+// seven characters of the HEAD sha joined by a dot.
+func TestHeadVersionAtJoinsVersionAndShortSha(t *testing.T) {
+	// leave any checkout and seed a fixture repo
+	clearGitRedirects(t)
+	repoDir, want := initRepo(t)
+
+	// join the version and the fixture sha
+	got, err := headVersionAt(repoDir, "v0.1.0-dev")
+	if err != nil {
+		t.Fatalf("headVersionAt returned error: %v", err)
+	}
+
 	// assert version.sha
-	if got := joinImageTag("v0.1.0-dev", "abc1234"); got != "v0.1.0-dev.abc1234" {
-		t.Errorf("joinImageTag = %q, want v0.1.0-dev.abc1234", got)
+	if got != "v0.1.0-dev."+want {
+		t.Errorf("headVersionAt = %q, want v0.1.0-dev.%s", got, want)
 	}
 }
 
