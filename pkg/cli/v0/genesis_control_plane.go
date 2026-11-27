@@ -1672,7 +1672,7 @@ func ValidateGcpBackupRegionFlag(
 // that isn't a positive Kubernetes quantity, such as 250Gi.  A size left
 // empty uses the tier's.
 func ValidateStorageSizeFlags(messageBrokerStorageSize, databaseStorageSize string) error {
-	if err := threeport.ValidateStorageSize("message-broker-storage-size", messageBrokerStorageSize); err != nil {
+	if err := threeport.ValidateMessageBrokerStorageSize("message-broker-storage-size", messageBrokerStorageSize); err != nil {
 		return err
 	}
 

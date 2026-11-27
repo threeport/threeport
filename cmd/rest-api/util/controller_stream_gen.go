@@ -18,6 +18,7 @@ import (
 	notif "github.com/threeport/threeport/internal/oci/notif"
 	secret_notif "github.com/threeport/threeport/internal/secret/notif"
 	terraform_notif "github.com/threeport/threeport/internal/terraform/notif"
+	notifications "github.com/threeport/threeport/pkg/notifications/v0"
 )
 
 // Initialize the NATS Jet stream context with controller streams, each
@@ -30,117 +31,169 @@ func InitJetStream(nc *nats.Conn, replicas int) (*nats.JetStreamContext, error) 
 
 	// add controller streams
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     secret_notif.SecretStreamName,
-		Replicas: replicas,
-		Subjects: secret_notif.GetSecretSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      secret_notif.SecretStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  secret_notif.GetSecretSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", secret_notif.SecretStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     aws_notif.AwsStreamName,
-		Replicas: replicas,
-		Subjects: aws_notif.GetAwsSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      aws_notif.AwsStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  aws_notif.GetAwsSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", aws_notif.AwsStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     notif.OciStreamName,
-		Replicas: replicas,
-		Subjects: notif.GetOciSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      notif.OciStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  notif.GetOciSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", notif.OciStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     notif1.GcpStreamName,
-		Replicas: replicas,
-		Subjects: notif1.GetGcpSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      notif1.GcpStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  notif1.GetGcpSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", notif1.GcpStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     controlplane_notif.ControlPlaneStreamName,
-		Replicas: replicas,
-		Subjects: controlplane_notif.GetControlPlaneSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      controlplane_notif.ControlPlaneStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  controlplane_notif.GetControlPlaneSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", controlplane_notif.ControlPlaneStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     gateway_notif.GatewayStreamName,
-		Replicas: replicas,
-		Subjects: gateway_notif.GetGatewaySubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      gateway_notif.GatewayStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  gateway_notif.GetGatewaySubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", gateway_notif.GatewayStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     helmworkload_notif.HelmWorkloadStreamName,
-		Replicas: replicas,
-		Subjects: helmworkload_notif.GetHelmWorkloadSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      helmworkload_notif.HelmWorkloadStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  helmworkload_notif.GetHelmWorkloadSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", helmworkload_notif.HelmWorkloadStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     notif2.MachineRuntimeStreamName,
-		Replicas: replicas,
-		Subjects: notif2.GetMachineRuntimeSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      notif2.MachineRuntimeStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  notif2.GetMachineRuntimeSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", notif2.MachineRuntimeStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     notif3.MachineWorkloadStreamName,
-		Replicas: replicas,
-		Subjects: notif3.GetMachineWorkloadSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      notif3.MachineWorkloadStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  notif3.GetMachineWorkloadSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", notif3.MachineWorkloadStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     kubernetesruntime_notif.KubernetesRuntimeStreamName,
-		Replicas: replicas,
-		Subjects: kubernetesruntime_notif.GetKubernetesRuntimeSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      kubernetesruntime_notif.KubernetesRuntimeStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  kubernetesruntime_notif.GetKubernetesRuntimeSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", kubernetesruntime_notif.KubernetesRuntimeStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     observability_notif.ObservabilityStreamName,
-		Replicas: replicas,
-		Subjects: observability_notif.GetObservabilitySubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      observability_notif.ObservabilityStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  observability_notif.GetObservabilitySubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", observability_notif.ObservabilityStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     terraform_notif.TerraformStreamName,
-		Replicas: replicas,
-		Subjects: terraform_notif.GetTerraformSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      terraform_notif.TerraformStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  terraform_notif.GetTerraformSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", terraform_notif.TerraformStreamName, err)
 	}
 
 	_, err = js.AddStream(&nats.StreamConfig{
-		Name:     kubernetesworkload_notif.KubernetesWorkloadStreamName,
-		Replicas: replicas,
-		Subjects: kubernetesworkload_notif.GetKubernetesWorkloadSubjects(),
+		Discard:   nats.DiscardNew,
+		MaxBytes:  notifications.ControllerStreamMaxBytes,
+		Name:      kubernetesworkload_notif.KubernetesWorkloadStreamName,
+		Replicas:  replicas,
+		Retention: nats.WorkQueuePolicy,
+		Storage:   nats.FileStorage,
+		Subjects:  kubernetesworkload_notif.GetKubernetesWorkloadSubjects(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not add stream %s: %w", kubernetesworkload_notif.KubernetesWorkloadStreamName, err)

@@ -3,10 +3,11 @@
 A control plane keeps its data on two kinds of volume: each CockroachDB node
 stores the Threeport API's database on one, and each NATS server stores the
 notification streams and the controllers' lock buckets on another. A full
-database refuses writes, and a full NATS server refuses every message
-published to it, which stops the API from notifying the controllers of
-changes. This page covers how large the volumes are, how to grow them, and the
-warning Threeport gives before NATS runs out of space.
+database refuses writes, and a NATS server at its storage limit, or a
+notification stream at its cap, refuses the messages published to it, which
+stops the API from notifying the controllers of changes. This page covers how
+large the volumes are, how to grow them, and what to do when NATS nears its
+limits.
 
 ## Volume Sizes
 
@@ -77,17 +78,11 @@ for NATS, and `datadir-crdb-0`, `datadir-crdb-1` and so on for CockroachDB.
     kubectl -n threeport-control-plane get pvc datadir-crdb-0
     ```
 
-3. For NATS, restart each server once its volume has grown, one at a time,
-   waiting for each to be ready again:
-
-    ```bash
-    kubectl -n threeport-control-plane delete pod nats-js-0
-    kubectl -n threeport-control-plane wait --for=condition=Ready pod/nats-js-0
-    ```
-
-    A NATS server sets how much it stores from its volume's free space when it
-    starts, three quarters of it, so it uses the larger volume only once
-    restarted. CockroachDB uses the larger volume without a restart.
+3. CockroachDB uses the larger volume without a restart. NATS has nothing to
+   gain from one: its JetStream storage is capped at 4Gi by `max_file`, and
+   each controller's notification stream at 256MiB, whatever its volume's
+   size. `--message-broker-storage-size` refuses a volume under 5Gi, which
+   would fill before that cap.
 
 The StatefulSets keep the size they were created with in their volume claim
 templates, which Kubernetes doesn't allow to change. That size only applies to
@@ -99,9 +94,21 @@ time.
 
 ## Running Out of Space
 
+NATS stops at limits that a bigger volume does not raise. A server stores at
+most 4Gi of JetStream data, set by `max_file`, and each controller's
+notification stream at most 256MiB. A stream at its cap refuses new
+notifications for its controller, and keeps the ones it holds. The API doesn't
+tell its client when a notification is refused
+([threeport#665](https://github.com/threeport/threeport/issues/665)), so the
+change isn't reconciled.
+
+A controller removes each notification from its stream once it has processed
+it. A stream only fills when its controller stops processing: the controller is
+down or crash-looping, or it can't finish a reconciliation.
+
 The Threeport agent on the control plane's cluster checks each NATS server's
-storage every five minutes. When a server uses 80% or more of the space it
-stores in, the agent records a `Warning` event on the server's pod, and logs it:
+storage every five minutes. When a server uses 80% or more of its 4Gi, the
+agent records a `Warning` event on the server's pod, and logs it:
 
 ```bash
 kubectl -n threeport-control-plane get events \
@@ -110,9 +117,37 @@ kubectl -n threeport-control-plane get events \
 
 ```
 LAST SEEN   TYPE      REASON                           OBJECT          MESSAGE
-2m          Warning   MessageBrokerStorageNearlyFull   pod/nats-js-0   message broker server nats-js-0 uses 82% of its JetStream storage (153.2GiB of 186.5GiB); it refuses messages once it is full, which stops the control plane's notifications: grow its volume before then
+2m          Warning   MessageBrokerStorageNearlyFull   pod/nats-js-0   message broker server nats-js-0 uses 82% of its JetStream storage (3.3GiB of 4.0GiB); it refuses messages once it is full, which stops the control plane's notifications: find the stream holding the backlog with `nats stream report` before then
 ```
 
-The event repeats while the server stays above 80%. Grow its volume as above.
-Threeport doesn't check the database's volumes: CockroachDB reports each
-node's capacity and use in its DB Console and its metrics.
+The warning covers the server as a whole. One stream at its 256MiB cap is 6% of
+4Gi, so it doesn't raise the warning: look at the streams if a controller stops
+reacting to changes.
+
+1. Find the stream holding the backlog, the one with the most messages. A stream
+   is named for its controller: `gcpStream` is the GCP controller's.
+
+    ```bash
+    kubectl exec -it deploy/nats-js-box -n threeport-control-plane -- nats stream report
+    ```
+
+2. Fix the controller, starting with its pod and its logs. Once it processes
+   notifications again, it works through the backlog, and the stream empties
+   by itself.
+
+3. If the notifications aren't worth processing, discard them. This drops every
+   pending notification for that controller, and an object changed in the
+   meantime isn't reconciled until it changes again:
+
+    ```bash
+    kubectl exec -it deploy/nats-js-box -n threeport-control-plane -- nats stream purge gcpStream
+    ```
+
+Don't grow the volume for this, and don't raise a stream's limits with
+`nats stream edit`. The API server creates the streams with the limits of its
+release when it starts, and refuses to start when a stream's configuration
+differs from them.
+
+The event repeats while the server stays above 80%. Threeport doesn't check the
+database's volumes: CockroachDB reports each node's capacity and use in its DB
+Console and its metrics.
