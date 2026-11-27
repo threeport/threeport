@@ -76,6 +76,96 @@ func TestGkeClusterReady(t *testing.T) {
 	}
 }
 
+// TestGkeClusterConnectable covers the check a caller makes when it connects to
+// a cluster that is already built: GKE maintenance leaves it RECONCILING, and
+// that must not keep tptctl from tearing it down.
+func TestGkeClusterConnectable(t *testing.T) {
+	tests := []struct {
+		name    string
+		mutate  func(*containerpb.Cluster)
+		wantErr string
+	}{
+		{name: "running with endpoint and CA", mutate: func(*containerpb.Cluster) {}},
+		{
+			name:   "reconciling with endpoint and CA",
+			mutate: func(c *containerpb.Cluster) { c.Status = containerpb.Cluster_RECONCILING },
+		},
+		{
+			name: "reconciling with no endpoint",
+			mutate: func(c *containerpb.Cluster) {
+				c.Status = containerpb.Cluster_RECONCILING
+				c.Endpoint = ""
+			},
+			wantErr: "no API endpoint",
+		},
+		{
+			name: "reconciling with no CA",
+			mutate: func(c *containerpb.Cluster) {
+				c.Status = containerpb.Cluster_RECONCILING
+				c.MasterAuth = nil
+			},
+			wantErr: "no CA certificate",
+		},
+		{
+			name:    "provisioning",
+			mutate:  func(c *containerpb.Cluster) { c.Status = containerpb.Cluster_PROVISIONING },
+			wantErr: "PROVISIONING",
+		},
+		{
+			name:    "stopping",
+			mutate:  func(c *containerpb.Cluster) { c.Status = containerpb.Cluster_STOPPING },
+			wantErr: "STOPPING",
+		},
+		{
+			name:    "error",
+			mutate:  func(c *containerpb.Cluster) { c.Status = containerpb.Cluster_ERROR },
+			wantErr: "ERROR",
+		},
+		{
+			name:    "degraded",
+			mutate:  func(c *containerpb.Cluster) { c.Status = containerpb.Cluster_DEGRADED },
+			wantErr: "DEGRADED",
+		},
+		{
+			name:    "status unspecified",
+			mutate:  func(c *containerpb.Cluster) { c.Status = containerpb.Cluster_STATUS_UNSPECIFIED },
+			wantErr: "STATUS_UNSPECIFIED",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cluster := readyCluster()
+			tt.mutate(cluster)
+
+			err := gkeClusterConnectable(cluster)
+
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+}
+
+// TestAReconcilingClusterIsConnectableButNotReady pins the split: the same
+// RECONCILING cluster is refused where a caller records its endpoint or
+// confirms a create, and accepted where a caller connects to an existing
+// cluster, with the endpoint and CA the caller needs.
+func TestAReconcilingClusterIsConnectableButNotReady(t *testing.T) {
+	cluster := readyCluster()
+	cluster.Status = containerpb.Cluster_RECONCILING
+
+	assert.ErrorContains(t, gkeClusterReady(cluster), "RECONCILING")
+	require.NoError(t, gkeClusterConnectable(cluster))
+
+	endpoint, ca, err := gkeKubeApiEndpoint(cluster)
+	require.NoError(t, err)
+	assert.Equal(t, "https://203.0.113.10", endpoint)
+	assert.Equal(t, "ca", ca)
+}
+
 // TestGkeWorkerPoolReady covers a cluster whose worker pool is not running yet.
 func TestGkeWorkerPoolReady(t *testing.T) {
 	t.Run("worker pool running", func(t *testing.T) {
