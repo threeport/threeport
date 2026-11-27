@@ -1,73 +1,83 @@
 package kubernetesruntime
 
 import (
-	"os"
-	"path/filepath"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	v0 "github.com/threeport/threeport/pkg/api/v0"
-	auth "github.com/threeport/threeport/pkg/auth/v0"
+	client_lib "github.com/threeport/threeport/pkg/client/lib/v0"
+	controller "github.com/threeport/threeport/pkg/controller/v0"
 	tpi "github.com/threeport/threeport/pkg/threeport-installer/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
 
-func TestLoadComputeSpaceAgentAccess(t *testing.T) {
-	const endpoint = "34.1.2.3:443"
+// TestAPIAuthEnabled covers how the controller tells whether the control plane
+// has authentication on: its client is built with client certificates exactly
+// when it does.
+func TestAPIAuthEnabled(t *testing.T) {
+	withAuth := &http.Client{Transport: &client_lib.CustomTransport{IsTlsEnabled: true}}
+	withoutAuth := &http.Client{Transport: &client_lib.CustomTransport{IsTlsEnabled: false}}
 
-	t.Run("none when the control plane has no external endpoint", func(t *testing.T) {
-		access, err := loadComputeSpaceAgentAccess("", t.TempDir())
+	assert.True(t, apiAuthEnabled(withAuth))
+	assert.False(t, apiAuthEnabled(withoutAuth))
+
+	// no client, or one the controller did not build, is not one with auth
+	assert.False(t, apiAuthEnabled(nil))
+	assert.False(t, apiAuthEnabled(&http.Client{}))
+}
+
+// TestAgentCertificateIssuer covers the call the installer makes to get an
+// agent's certificate: it goes to the API, for the right runtime, and says
+// which runtime when it fails.
+func TestAgentCertificateIssuer(t *testing.T) {
+	t.Run("asks the API for the runtime's agent", func(t *testing.T) {
+		var sent map[string]string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, v0.PathAgentCertificates, r.URL.Path)
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&sent))
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			fmt.Fprint(w, `{"Data":[{"Certificate":"CERT","CACertificate":"CA"}]}`)
+		}))
+		defer server.Close()
+		reconciler := &controller.Reconciler{
+			APIClient: server.Client(),
+			APIServer: strings.TrimPrefix(server.URL, "http://"),
+		}
+
+		issued, err := agentCertificateIssuer(reconciler, "east")("CSR")
+
 		require.NoError(t, err)
-		assert.Nil(t, access)
-		assert.Nil(t, agentAuthConfig(access))
+		assert.Equal(t, "CERT", issued.Certificate)
+		assert.Equal(t, "CA", issued.CACertificate)
+		assert.Equal(t, map[string]string{"RuntimeInstanceName": "east", "CertificateSigningRequest": "CSR"}, sent)
 	})
 
-	t.Run("an address without a signing CA is a control plane with auth off", func(t *testing.T) {
-		access, err := loadComputeSpaceAgentAccess(endpoint, filepath.Join(t.TempDir(), "absent"))
-		require.NoError(t, err)
-		require.NotNil(t, access)
-		assert.Equal(t, endpoint, access.apiServer)
-		assert.Nil(t, access.authConfig)
-	})
+	t.Run("names the runtime when the API refuses", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			fmt.Fprint(w, `{"Status":{"Code":403,"Error":"refused"}}`)
+		}))
+		defer server.Close()
+		reconciler := &controller.Reconciler{
+			APIClient: server.Client(),
+			APIServer: strings.TrimPrefix(server.URL, "http://"),
+		}
 
-	t.Run("the signing CA is loaded to issue certificates from", func(t *testing.T) {
-		generated, err := auth.GetAuthConfig()
-		require.NoError(t, err)
-		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "tls.crt"), []byte(generated.CAPemEncoded), 0o600))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "tls.key"), []byte(generated.CAPrivateKeyPemEncoded), 0o600))
+		issued, err := agentCertificateIssuer(reconciler, "east")("CSR")
 
-		access, err := loadComputeSpaceAgentAccess(endpoint, dir)
-		require.NoError(t, err)
-		require.NotNil(t, access.authConfig)
-		assert.Equal(t, generated.CAPemEncoded, access.authConfig.CAPemEncoded)
-		assert.Same(t, access.authConfig, agentAuthConfig(access))
-	})
-
-	// half a keypair is a broken mount, not a control plane without auth
-	t.Run("a certificate without its key is an error", func(t *testing.T) {
-		generated, err := auth.GetAuthConfig()
-		require.NoError(t, err)
-		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "tls.crt"), []byte(generated.CAPemEncoded), 0o600))
-
-		_, err = loadComputeSpaceAgentAccess(endpoint, dir)
-		assert.Error(t, err)
-	})
-
-	t.Run("a key that does not match the certificate is an error", func(t *testing.T) {
-		first, err := auth.GetAuthConfig()
-		require.NoError(t, err)
-		second, err := auth.GetAuthConfig()
-		require.NoError(t, err)
-		dir := t.TempDir()
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "tls.crt"), []byte(first.CAPemEncoded), 0o600))
-		require.NoError(t, os.WriteFile(filepath.Join(dir, "tls.key"), []byte(second.CAPrivateKeyPemEncoded), 0o600))
-
-		_, err = loadComputeSpaceAgentAccess(endpoint, dir)
-		assert.Error(t, err)
+		require.Error(t, err)
+		assert.Nil(t, issued)
+		assert.Contains(t, err.Error(), "runtime instance east")
+		assert.ErrorIs(t, err, client_lib.ErrForbidden)
 	})
 }
 

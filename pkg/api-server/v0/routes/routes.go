@@ -52,6 +52,15 @@ func CustomRoutes(h *handlers.Handler) *[]CustomRoute {
 	}
 
 	return &[]CustomRoute{
+		// Issues a client certificate to the agent on a managed runtime.  It
+		// serves no stored object: what it returns is not kept anywhere.
+		{
+			Path:       v0.PathAgentCertificates,
+			Method:     "POST",
+			Handler:    util.Ptr(h.CreateAgentCertificate),
+			ApiObjects: &[]ApiObject{},
+		},
+
 		// Adds kubernetes workload resource definitions in bulk.
 		{
 			Path:    v0.PathKubernetesWorkloadResourceDefinitionSets,
