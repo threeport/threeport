@@ -583,3 +583,26 @@ func InitConfig(cmd *cobra.Command, cfgFile string) {
 		os.Exit(1)
 	}
 }
+
+// LoadConfigIfPresent loads the threeport config for a command that has to run
+// without one, such as tptctl version on a machine that has only just had
+// tptctl installed.  It reports whether a config file was found.  Unlike
+// InitConfig it never exits: a missing file is not an error, and a file that is
+// there but cannot be read is returned as one.
+func LoadConfigIfPresent(cfgFile string) (bool, error) {
+	cfgFile = DetermineThreeportConfigPath(cfgFile)
+
+	if _, err := os.Stat(cfgFile); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check for config file %s: %w", cfgFile, err)
+	}
+
+	viper.SetConfigFile(cfgFile)
+	if err := viper.ReadInConfig(); err != nil {
+		return false, fmt.Errorf("failed to read config file %s: %w", cfgFile, err)
+	}
+
+	return true, nil
+}

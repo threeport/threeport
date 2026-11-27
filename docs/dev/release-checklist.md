@@ -35,7 +35,9 @@ versions as needed for future releases.
   latest release.
 - [] Install latest released tptctl version locally and run manual tests again
   using release container images.  As with pre-release testing, follow guides in
-  Threeport user docs to ensure commands work as documented.
+  Threeport user docs to ensure commands work as documented.  Run `tptctl
+  version` against the control plane and check that the server version matches
+  the client version, with no mismatch warning.
 - [] Create feature branch for next release.
   ```bash
   git checkout main

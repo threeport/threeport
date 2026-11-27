@@ -212,8 +212,10 @@ func loadPlugins(pluginDir string) []string {
 	// check if plugin dir exists
 	if _, err := os.Stat(pluginDir); err != nil {
 		if os.IsNotExist(err) {
-			// plugin dir does not exist - assume no plugins installed
-			cli.Warning("no plugins installed")
+			// plugin dir does not exist - assume no plugins installed.  This
+			// goes to stderr because it is printed before every command,
+			// including those with machine-readable output on stdout.
+			fmt.Fprintln(os.Stderr, "Warning: no plugins installed")
 			return []string{}
 		} else {
 			cli.Error("failed to check for plugin directory", err)

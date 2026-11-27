@@ -28,16 +28,9 @@ var ErrDeleteInProgress = fmt.Errorf("%w: delete in progress", ErrConflict)
 // objects or related instances.
 var ErrDeleteBlocked = fmt.Errorf("%w: delete blocked", ErrConflict)
 
-// GetResponse calls the threeport API and returns a response.
-func GetResponse(
-	client *http.Client,
-	url string,
-	httpMethod string,
-	reqBody *bytes.Buffer,
-	reqHeader map[string]string,
-	expectedStatusCode int,
-) (*apiserver_lib.Response, error) {
-
+// ApiUrl prepends to an API address, which is a host and optional port and path
+// without a scheme, the scheme the client's transport calls for.
+func ApiUrl(client *http.Client, address string) string {
 	// If no scheme is present, determine based on transport configuration
 	urlScheme := "http://"
 
@@ -54,8 +47,21 @@ func GetResponse(
 		}
 	}
 
+	return urlScheme + address
+}
+
+// GetResponse calls the threeport API and returns a response.
+func GetResponse(
+	client *http.Client,
+	url string,
+	httpMethod string,
+	reqBody *bytes.Buffer,
+	reqHeader map[string]string,
+	expectedStatusCode int,
+) (*apiserver_lib.Response, error) {
+
 	// Prepend the scheme to the URL
-	url = urlScheme + url
+	url = ApiUrl(client, url)
 
 	req, err := http.NewRequest(httpMethod, url, reqBody)
 	if err != nil {

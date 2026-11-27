@@ -31,9 +31,13 @@ mage install:tptctl
 ```
 
 This prints the exact path it installed to, e.g. `tptctl binary installed
-and available at /home/you/go/bin/tptctl`.  If `tptctl version` fails with
-"command not found" afterward, that directory isn't on your `PATH` - add it,
-using the directory from your own command's output (not copied verbatim):
+and available at /home/you/go/bin/tptctl`.  Check the install with `tptctl
+version --client`, which prints only the version of `tptctl` and needs no
+control plane.  Plain `tptctl version` also asks the current control plane in
+your Threeport config for its version, and exits 1 if that control plane can't
+be reached.  If `tptctl version --client` fails with "command not found"
+afterward, that directory isn't on your `PATH` - add it, using the directory
+from your own command's output (not copied verbatim):
 
 ```bash
 export PATH="$PATH:/home/you/go/bin"
