@@ -40,4 +40,3 @@ func TestMultiError_Error(t *testing.T) {
 		}
 	})
 }
-

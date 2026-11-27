@@ -59,4 +59,3 @@ func TestRetry(t *testing.T) {
 		}
 	})
 }
-

@@ -20,12 +20,15 @@ func (d *DomainNameDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (d *DomainNameDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -62,12 +65,15 @@ func (d *DomainNameInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (d *DomainNameInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -104,12 +110,15 @@ func (g *GatewayDefinition) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GatewayDefinition) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -215,12 +224,15 @@ func (g *GatewayInstance) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GatewayInstance) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
@@ -257,12 +269,15 @@ func (g *GatewayTcpPort) beforeCreate(tx *gorm.DB) error {
 // per-field check is:
 //   - lib.IsFieldChanged(tx, "FieldName"): works under both PATCH
 //     and PUT, handles the DB load internally
+//
 // Lower-level helpers, useful when IsFieldChanged doesn't fit:
 //   - lib.IncomingValues(tx): values being written
 //   - lib.IsFullReplace(tx): true on PUT (Save shape)
 //   - lib.IsPartialUpdate(tx): true on PATCH/DELETE (Updates shape)
+//
 // Import:
-//   lib "github.com/threeport/threeport/pkg/api/lib/v0"
+//
+//	lib "github.com/threeport/threeport/pkg/api/lib/v0"
 func (g *GatewayTcpPort) beforeUpdate(tx *gorm.DB) error {
 	return nil
 }
