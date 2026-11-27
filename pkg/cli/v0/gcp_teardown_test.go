@@ -20,11 +20,18 @@ func TestGcpProvidersToCleanUp(t *testing.T) {
 		{Name: util.Ptr("no-project")},
 		{ProjectID: util.Ptr("no-name")},
 		{Name: util.Ptr("two"), ProjectID: util.Ptr("proj-b")},
+		// created before the setting was stored: cleaned up as before
+		{Name: util.Ptr("legacy"), ProjectID: util.Ptr("proj-c"), SyncServiceAccount: nil},
+		{Name: util.Ptr("synced"), ProjectID: util.Ptr("proj-d"), SyncServiceAccount: util.Ptr(true)},
+		// the service account is managed outside Threeport
+		{Name: util.Ptr("kept"), ProjectID: util.Ptr("proj-e"), SyncServiceAccount: util.Ptr(false)},
 	}
 
 	assert.Equal(t, []PendingGcpCleanup{
 		{Name: "one", ProjectID: "proj-a"},
 		{Name: "two", ProjectID: "proj-b"},
+		{Name: "legacy", ProjectID: "proj-c"},
+		{Name: "synced", ProjectID: "proj-d"},
 	}, gcpProvidersToCleanUp(providers))
 }
 
@@ -32,13 +39,25 @@ func TestListPendingGcpCleanup(t *testing.T) {
 	providers := &[]v0.GcpProvider{{Name: util.Ptr("one"), ProjectID: util.Ptr("proj-a")}}
 
 	t.Run("lists the providers to clean up", func(t *testing.T) {
-		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) { return providers, nil })
+		pending, _, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) { return providers, nil })
 		require.NoError(t, err)
 		assert.Equal(t, []PendingGcpCleanup{{Name: "one", ProjectID: "proj-a"}}, pending)
 	})
 
+	t.Run("a provider created with SyncServiceAccount false is not queued", func(t *testing.T) {
+		pending, kept, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+			return &[]v0.GcpProvider{
+				{Name: util.Ptr("one"), ProjectID: util.Ptr("proj-a")},
+				{Name: util.Ptr("kept"), ProjectID: util.Ptr("proj-b"), SyncServiceAccount: util.Ptr(false)},
+			}, nil
+		})
+		require.NoError(t, err)
+		assert.Equal(t, []PendingGcpCleanup{{Name: "one", ProjectID: "proj-a"}}, pending)
+		assert.Equal(t, []PendingGcpCleanup{{Name: "kept", ProjectID: "proj-b"}}, kept)
+	})
+
 	t.Run("a server without the route has nothing to clean up", func(t *testing.T) {
-		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+		pending, _, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
 			return &[]v0.GcpProvider{}, fmt.Errorf(
 				"call to threeport API returned unexpected response: %w: 404 page not found",
 				client_lib.ErrObjectNotFound,
@@ -50,13 +69,65 @@ func TestListPendingGcpCleanup(t *testing.T) {
 
 	t.Run("any other failure stops teardown and names the way past it", func(t *testing.T) {
 		cause := errors.New("connection refused")
-		pending, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
+		pending, _, err := listPendingGcpCleanup(func() (*[]v0.GcpProvider, error) {
 			return &[]v0.GcpProvider{}, cause
 		})
 		require.Error(t, err)
 		assert.ErrorIs(t, err, cause)
 		assert.Contains(t, err.Error(), "--infra-only")
 		assert.Empty(t, pending)
+	})
+}
+
+func TestGcpProvidersToKeep(t *testing.T) {
+	providers := []v0.GcpProvider{
+		{Name: util.Ptr("legacy"), ProjectID: util.Ptr("proj-a")},
+		{Name: util.Ptr("synced"), ProjectID: util.Ptr("proj-b"), SyncServiceAccount: util.Ptr(true)},
+		{Name: util.Ptr("kept"), ProjectID: util.Ptr("proj-c"), SyncServiceAccount: util.Ptr(false)},
+		{Name: util.Ptr("kept-no-project"), SyncServiceAccount: util.Ptr(false)},
+	}
+
+	assert.Equal(t, []PendingGcpCleanup{{Name: "kept", ProjectID: "proj-c"}}, gcpProvidersToKeep(providers))
+}
+
+// An earlier teardown attempt saves its list before the control plane is torn
+// down. If it fails and the user then opts a provider out, the retry must drop
+// that provider's saved entry, or the cleanup deletes the account the user kept.
+func TestReconcilePendingGcpCleanup(t *testing.T) {
+	one := PendingGcpCleanup{Name: "one", ProjectID: "proj-a"}
+	kept := PendingGcpCleanup{Name: "kept", ProjectID: "proj-b"}
+	gone := PendingGcpCleanup{Name: "gone", ProjectID: "proj-c"}
+	added := PendingGcpCleanup{Name: "added", ProjectID: "proj-d"}
+
+	t.Run("drops a saved entry whose provider now keeps its account", func(t *testing.T) {
+		got := reconcilePendingGcpCleanup([]PendingGcpCleanup{one, kept}, []PendingGcpCleanup{one}, []PendingGcpCleanup{kept})
+		assert.Equal(t, []PendingGcpCleanup{one}, got)
+	})
+
+	t.Run("drops it when nothing else is left to clean up", func(t *testing.T) {
+		got := reconcilePendingGcpCleanup([]PendingGcpCleanup{kept}, nil, []PendingGcpCleanup{kept})
+		assert.Empty(t, got)
+	})
+
+	t.Run("keeps an entry for a provider that is no longer listed", func(t *testing.T) {
+		got := reconcilePendingGcpCleanup([]PendingGcpCleanup{gone}, nil, nil)
+		assert.Equal(t, []PendingGcpCleanup{gone}, got)
+	})
+
+	t.Run("adds newly listed providers once", func(t *testing.T) {
+		got := reconcilePendingGcpCleanup([]PendingGcpCleanup{one}, []PendingGcpCleanup{one, added}, nil)
+		assert.Equal(t, []PendingGcpCleanup{one, added}, got)
+	})
+
+	t.Run("an entry only matches the provider of the same name and project", func(t *testing.T) {
+		other := PendingGcpCleanup{Name: "kept", ProjectID: "other-project"}
+		got := reconcilePendingGcpCleanup([]PendingGcpCleanup{other}, nil, []PendingGcpCleanup{kept})
+		assert.Equal(t, []PendingGcpCleanup{other}, got)
+	})
+
+	t.Run("nothing to change leaves the saved entries as they were", func(t *testing.T) {
+		existing := []PendingGcpCleanup{one, gone}
+		assert.Equal(t, existing, reconcilePendingGcpCleanup(existing, []PendingGcpCleanup{one}, nil))
 	})
 }
 
