@@ -435,15 +435,17 @@ func TestRefreshInstanceFrom(t *testing.T) {
 	}
 
 	// the parent answers after the earlier sources miss
-	_, endpoint, got, found := refreshInstanceFrom([]*cli.ControlPlane{genesis, down, parent}, lookup)
-	assert.True(t, found)
+	_, endpoint, got, err := refreshInstanceFrom([]*cli.ControlPlane{genesis, down, parent}, lookup)
+	require.NoError(t, err)
 	assert.Equal(t, want, got)
 	assert.Equal(t, "https://parent", endpoint)
 
-	// no source leaves the saved entry in place
-	_, _, missed, found := refreshInstanceFrom([]*cli.ControlPlane{genesis, down}, lookup)
-	assert.False(t, found)
+	// no source leaves the saved entry in place, and says why each missed
+	_, _, missed, err := refreshInstanceFrom([]*cli.ControlPlane{genesis, down}, lookup)
 	assert.Nil(t, missed)
+	require.Error(t, err)
+	assert.Equal(t, "genesis: "+client_lib.ErrObjectNotFound.Error()+"; down: connection refused", err.Error())
+	assert.ErrorIs(t, err, client_lib.ErrObjectNotFound)
 }
 
 // TestSameSavedControlPlane rejects a same-named child of another control plane.

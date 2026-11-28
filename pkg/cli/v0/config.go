@@ -494,24 +494,36 @@ func (c *ControlPlane) UpdateThreeportConfigInstance(f func(*ControlPlane)) (*Th
 
 // UpdateThreeportConfig updates a threeport config to add or update a config
 // for a threeport control plane and set it as the current control plane.
+// threeportConfig and the values viper holds change only once the config file
+// is written: a failed write leaves both as they were, so a later write in the
+// same command does not save what this one could not.
 func UpdateThreeportConfig(
 	threeportConfig *ThreeportConfig,
 	threeportControlPlaneConfig *ControlPlane,
 ) error {
-	if threeportConfig.CheckThreeportControlPlaneExists(threeportControlPlaneConfig.Name) {
-		for n, instance := range threeportConfig.ControlPlanes {
-			if instance.Name == threeportControlPlaneConfig.Name {
-				threeportConfig.ControlPlanes[n] = *threeportControlPlaneConfig
-			}
+	// build the updated list on a copy of the saved one
+	controlPlanes := append([]ControlPlane(nil), threeportConfig.ControlPlanes...)
+	replaced := false
+	for n := range controlPlanes {
+		if controlPlanes[n].Name == threeportControlPlaneConfig.Name {
+			controlPlanes[n] = *threeportControlPlaneConfig
+			replaced = true
 		}
-	} else {
-		threeportConfig.ControlPlanes = append(threeportConfig.ControlPlanes, *threeportControlPlaneConfig)
 	}
-	viper.Set("ControlPlanes", threeportConfig.ControlPlanes)
+	if !replaced {
+		controlPlanes = append(controlPlanes, *threeportControlPlaneConfig)
+	}
+
+	// viper keeps a value it is given whether or not the write that follows
+	// succeeds, so a failed write puts back the values it replaced
+	viper.Set("ControlPlanes", controlPlanes)
 	viper.Set("CurrentControlPlane", threeportControlPlaneConfig.Name)
 	if err := viper.WriteConfig(); err != nil {
+		viper.Set("ControlPlanes", threeportConfig.ControlPlanes)
+		viper.Set("CurrentControlPlane", threeportConfig.CurrentControlPlane)
 		return fmt.Errorf("failed to write config to file: %w", err)
 	}
+	threeportConfig.ControlPlanes = controlPlanes
 
 	return nil
 }
