@@ -28,6 +28,7 @@ import (
 	v0 "github.com/threeport/threeport/pkg/api/v0"
 	controller "github.com/threeport/threeport/pkg/controller/v0"
 	tp_errors "github.com/threeport/threeport/pkg/errors/v0"
+	event "github.com/threeport/threeport/pkg/event/v0"
 	kube "github.com/threeport/threeport/pkg/kube/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -113,6 +114,16 @@ func (f *fakeThreeportAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		wrd.ID = f.id()
 		f.wrds[*wrd.ID] = &wrd
 		respond(http.StatusCreated, wrd)
+	case r.URL.Path == v0.PathKubernetesWorkloadResourceDefinitionSets && r.Method == http.MethodPost:
+		var wrds []v0.KubernetesWorkloadResourceDefinition
+		_ = json.NewDecoder(r.Body).Decode(&wrds)
+		var created []apiserver_lib.Object
+		for _, wrd := range wrds {
+			wrd.ID = f.id()
+			f.wrds[*wrd.ID] = &wrd
+			created = append(created, wrd)
+		}
+		respond(http.StatusCreated, created...)
 	case strings.HasPrefix(r.URL.Path, v0.PathKubernetesWorkloadResourceDefinitions+"/"):
 		id := pathID(v0.PathKubernetesWorkloadResourceDefinitions)
 		wrd, found := f.wrds[id]
@@ -335,7 +346,7 @@ func newDefinitionUpdateFixture(t *testing.T, yaml *string) *definitionUpdateFix
 				return kube.IsNamespaced(jsonDef, runtimeDiscovery)
 			},
 			terminating: func(jsonDef []byte) (bool, error) {
-				key, _, err := instanceResourceKey(jsonDef)
+				key, _, err := instanceResourceKey(jsonDef, "")
 				return fixture.terminating[key], err
 			},
 		}, nil
@@ -531,6 +542,28 @@ func TestDefinitionUpdateReachesRunningInstances(t *testing.T) {
 		require.NoError(t, fixture.update(fixture.definition.YAMLDocument))
 		assert.Empty(t, fixture.api.writes)
 	})
+}
+
+// TestDefinitionUpdateRemovesAResourceFromASupportServicesNamespaceItDeclares
+// covers a definition that declares a support-services namespace as its own:
+// its instances place every resource there, so a resource it no longer
+// declares is found in that namespace and scheduled for deletion, rather than
+// left running with nothing to find it again.
+func TestDefinitionUpdateRemovesAResourceFromASupportServicesNamespaceItDeclares(t *testing.T) {
+	const certs = `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"nukleros-certs-system"}}`
+	fixture := newDefinitionUpdateFixture(t, yamlDocument(certs, fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+	_, placed := fixture.resources(t, fixture.plain)["/Service/nukleros-certs-system/web"]
+	require.True(t, placed, "the instance places the service in the namespace the definition declares")
+
+	require.NoError(t, fixture.update(yamlDocument(certs, fmt.Sprintf(webDeployment, 1, "nginx:1.26"))))
+
+	resources := fixture.resources(t, fixture.plain)
+	_, leaving := resources["leaving:/Service/nukleros-certs-system/web"]
+	assert.True(t, leaving, "the dropped resource is scheduled for deletion")
+	deployment, kept := resources["apps/Deployment/nukleros-certs-system/web"]
+	require.True(t, kept)
+	assert.True(t, *deployment.Reconciled, "the unchanged deployment is left alone")
+	assert.False(t, *fixture.api.instances[fixture.plain].Reconciled, "marked for update")
 }
 
 // TestDefinitionUpdateInterruptedIsFinishedByTheRetry covers an update that
@@ -758,6 +791,20 @@ spec:
 		assert.False(t, *cronJobs[0].Reconciled)
 	})
 
+	t.Run("editing a resource in a support-services namespace the definition declares", func(t *testing.T) {
+		// the instance holds the resource placed in that namespace, which tells
+		// it is namespaced without asking about a version no longer served
+		certs := `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"nukleros-certs-system"}}`
+		fixture := newDefinitionUpdateFixture(t, yamlDocument(certs, deployment, fmt.Sprintf(cronJob, "batch/v1beta1")))
+		fixture.retired = []string{"batch/v1beta1", "batch/v1"}
+
+		edited := strings.Replace(fmt.Sprintf(cronJob, "batch/v1beta1"), "0 3 * * *", "0 4 * * *", 1)
+		require.NoError(t, fixture.update(yamlDocument(certs, deployment, edited)))
+		cronJob, found := fixture.resources(t, fixture.plain)["batch/CronJob/nukleros-certs-system/nightly"]
+		require.True(t, found, "updated in place, in the namespace the definition declares")
+		assert.False(t, *cronJob.Reconciled)
+	})
+
 	t.Run("dropping a resource whose group is no longer served at all", func(t *testing.T) {
 		fixture := newDefinitionUpdateFixture(t, yamlDocument(deployment, fmt.Sprintf(cronJob, "batch/v1beta1")))
 		fixture.retired = []string{"batch/v1beta1", "batch/v1"}
@@ -867,4 +914,194 @@ func TestDefinitionUpdateReachesOnlyForTheRuntimeWhenItMust(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "connection refused")
 	})
+}
+
+// createDefinition runs the definition create reconciler on a definition with
+// the YAML document given.
+func createDefinition(t *testing.T, api *fakeThreeportAPI, yaml *string) error {
+	t.Helper()
+	srv := httptest.NewServer(api)
+	t.Cleanup(srv.Close)
+	reconciler := &controller.Reconciler{APIClient: &http.Client{}, APIServer: strings.TrimPrefix(srv.URL, "http://")}
+	log := logr.Discard()
+	requeue, err := v0KubernetesWorkloadDefinitionCreated(reconciler, &v0.KubernetesWorkloadDefinition{
+		Common:       v0.Common{ID: util.Ptr(uint(1))},
+		Definition:   v0.Definition{Name: util.Ptr("web")},
+		YAMLDocument: yaml,
+	}, &log)
+	if err == nil && requeue != 0 {
+		return fmt.Errorf("create requeued for %d seconds", requeue)
+	}
+	return err
+}
+
+// storedResourceKeys returns the instanceResourceKey of each resource
+// definition the API holds, in the order they were written.
+func storedResourceKeys(t *testing.T, api *fakeThreeportAPI) []string {
+	t.Helper()
+	var keys []string
+	for _, id := range sortedIDs(api.wrds) {
+		key, isResource, err := instanceResourceKey(*api.wrds[id].JSONDefinition, "")
+		require.NoError(t, err)
+		require.True(t, isResource)
+		keys = append(keys, key)
+	}
+	return keys
+}
+
+// TestDefinitionCreateWritesEachResourceOnce covers a new definition: one
+// resource definition is written for each resource its YAML document
+// declares, in one write, and an empty document between them is no resource.
+func TestDefinitionCreateWritesEachResourceOnce(t *testing.T) {
+	api := newFakeThreeportAPI()
+
+	require.NoError(t, createDefinition(t, api, yamlDocument("", fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService)))
+	assert.Equal(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
+	assert.Equal(t, []string{"POST " + v0.PathKubernetesWorkloadResourceDefinitionSets}, api.writes)
+}
+
+// TestDefinitionCreateKeepsResourcesInTwoSupportServicesNamespaces covers a
+// new definition declaring a resource of one kind and name in two
+// support-services namespaces: placement keeps both namespaces, so they are
+// two objects, and a resource definition is written for each.
+func TestDefinitionCreateKeepsResourcesInTwoSupportServicesNamespaces(t *testing.T) {
+	api := newFakeThreeportAPI()
+
+	require.NoError(t, createDefinition(t, api, yamlDocument(
+		`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-ingress-system"}}`,
+		`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"name":"settings","namespace":"nukleros-certs-system"}}`,
+	)))
+	assert.Equal(t, []string{
+		"/ConfigMap/nukleros-ingress-system/settings",
+		"/ConfigMap/nukleros-certs-system/settings",
+	}, storedResourceKeys(t, api))
+}
+
+// TestDefinitionCreatesAnUpdateWouldRefuseAreRefused covers a new definition
+// whose YAML document an update would refuse: it is refused the same way,
+// with a warning on the definition, and nothing is written.
+func TestDefinitionCreatesAnUpdateWouldRefuseAreRefused(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		yaml    *string
+		message string
+	}{
+		{
+			name:    "declaring no resources at all",
+			yaml:    yamlDocument(""),
+			message: "declares no resources",
+		},
+		{
+			name:    "declaring a resource twice",
+			yaml:    yamlDocument(webService, fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService),
+			message: "declares /Service/web more than once",
+		},
+		{
+			name:    "declaring a resource without a name",
+			yaml:    yamlDocument(`{"apiVersion":"v1","kind":"ConfigMap","metadata":{"generateName":"web-"}}`),
+			message: "no kind or no name",
+		},
+		{
+			name:    "a document that isn't YAML",
+			yaml:    yamlDocument("kind: [Service"),
+			message: "failed to get JSON kube objects from YAML document",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			api := newFakeThreeportAPI()
+
+			err := createDefinition(t, api, testCase.yaml)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), testCase.message)
+			var withEvent *tp_errors.ErrWithEvent
+			require.True(t, errors.As(err, &withEvent), "recorded as an event on the definition")
+			assert.Equal(t, "DefinitionCreateError", *withEvent.Event.Reason)
+			assert.Equal(t, event.TypeWarning, *withEvent.Event.Type)
+			assert.Empty(t, api.writes)
+		})
+	}
+}
+
+// TestDefinitionCreateRetriedWritesOnlyWhatIsMissing covers a create retried
+// after part of it succeeded, as when its resource definitions were written
+// but the definition couldn't be marked reconciled: the retry writes only
+// those still missing, never a second copy of one.
+func TestDefinitionCreateRetriedWritesOnlyWhatIsMissing(t *testing.T) {
+	yaml := yamlDocument(fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService)
+	api := newFakeThreeportAPI()
+
+	require.NoError(t, createDefinition(t, api, yaml))
+	api.writes = nil
+	require.NoError(t, createDefinition(t, api, yaml))
+	assert.Empty(t, api.writes, "all of them were written")
+	assert.Equal(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
+
+	for _, id := range sortedIDs(api.wrds) {
+		key, _, err := instanceResourceKey(*api.wrds[id].JSONDefinition, "")
+		require.NoError(t, err)
+		if key == "/Service/web" {
+			delete(api.wrds, id)
+		}
+	}
+	require.NoError(t, createDefinition(t, api, yaml))
+	assert.Equal(t, []string{"POST " + v0.PathKubernetesWorkloadResourceDefinitionSets}, api.writes)
+	assert.ElementsMatch(t, []string{"apps/Deployment/web", "/Service/web"}, storedResourceKeys(t, api))
+}
+
+// TestDefinitionUpdateRemovesAResourceFromTheNamespaceAnOverlayRenames covers
+// an instance whose overlay renames the Namespace its definition declares,
+// here to a support-services namespace: its resources are placed by the
+// rendered name, so they are keyed by it too.  A Service dropped from the
+// definition is scheduled for deletion on that instance, rather than its
+// resource definition going while the Service keeps running.
+func TestDefinitionUpdateRemovesAResourceFromTheNamespaceAnOverlayRenames(t *testing.T) {
+	const team = `{"apiVersion":"v1","kind":"Namespace","metadata":{"name":"team"}}`
+	const renameOverlay = `
+patches:
+- target:
+    kind: Namespace
+    name: team
+  patch: |-
+    - op: replace
+      path: /metadata/name
+      value: nukleros-certs-system
+`
+	fixture := newDefinitionUpdateFixture(t, yamlDocument(team, fmt.Sprintf(webDeployment, 1, "nginx:1.26"), webService))
+
+	// an instance deployed with the overlay, as the instance reconciler
+	// deploys it
+	var wrds []v0.KubernetesWorkloadResourceDefinition
+	for _, wrd := range fixture.api.wrds {
+		wrds = append(wrds, *wrd)
+	}
+	renamed := &v0.KubernetesWorkloadInstance{
+		Common:                         v0.Common{ID: fixture.api.id()},
+		Instance:                       v0.Instance{Name: util.Ptr("renamed")},
+		Reconciliation:                 v0.Reconciliation{Reconciled: util.Ptr(true)},
+		KubernetesWorkloadDefinitionID: fixture.definition.ID,
+		KubernetesRuntimeInstanceID:    util.Ptr(uint(9)),
+		KustomizeOverlay:               util.Ptr(renameOverlay),
+	}
+	fixture.api.instances[*renamed.ID] = renamed
+	wris, err := instanceResources(renamed, wrds)
+	require.NoError(t, err)
+	processed, err := kube.SetNamespaces(&wris, renamed.Name, renamed.ID, fakeKubeDiscovery(t))
+	require.NoError(t, err)
+	for _, wri := range *processed {
+		wri.ID = fixture.api.id()
+		wri.Reconciled = util.Ptr(true)
+		fixture.api.wris[*wri.ID] = &wri
+	}
+	_, placed := fixture.resources(t, *renamed.ID)["/Service/nukleros-certs-system/web"]
+	require.True(t, placed, "the instance places the service in the namespace its overlay renames to")
+	fixture.api.writes = nil
+
+	require.NoError(t, fixture.update(yamlDocument(team, fmt.Sprintf(webDeployment, 1, "nginx:1.26"))))
+
+	resources := fixture.resources(t, *renamed.ID)
+	_, leaving := resources["leaving:/Service/nukleros-certs-system/web"]
+	assert.True(t, leaving, "the dropped service is scheduled for deletion")
+	_, kept := resources["apps/Deployment/nukleros-certs-system/web"]
+	assert.True(t, kept)
+	assert.False(t, *fixture.api.instances[*renamed.ID].Reconciled, "marked for update")
 }

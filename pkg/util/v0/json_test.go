@@ -270,3 +270,40 @@ func TestCountsTowardManagedNamespace(t *testing.T) {
 		})
 	}
 }
+
+// TestKeptNamespace covers the namespace UpdateNamespace keeps for a
+// resource, whatever namespace it is given.
+func TestKeptNamespace(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "a gateway goes to the gateway namespace", in: `{"kind":"Gateway","metadata":{"name":"edge"}}`, want: GatewaySystemNamespace},
+		{name: "a gateway naming another namespace too", in: `{"kind":"Gateway","metadata":{"name":"edge","namespace":"team"}}`, want: GatewaySystemNamespace},
+		{name: "a support-services namespace is kept", in: `{"kind":"ConfigMap","metadata":{"name":"s","namespace":"nukleros-secrets-system"}}`, want: "nukleros-secrets-system"},
+		{name: "another namespace is not", in: `{"kind":"ConfigMap","metadata":{"name":"s","namespace":"team"}}`, want: ""},
+		{name: "nor is none", in: `{"kind":"ConfigMap","metadata":{"name":"s"}}`, want: ""},
+		{name: "nor one without metadata", in: `{"kind":"ConfigMap"}`, want: ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var object map[string]interface{}
+			require.NoError(t, json.Unmarshal([]byte(tc.in), &object))
+			assert.Equal(t, tc.want, KeptNamespace(object))
+
+			updated, err := UpdateNamespace(datatypes.JSON(tc.in), "instance-ns")
+			if _, hasMetadata := object["metadata"]; !hasMetadata {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			var placed map[string]interface{}
+			require.NoError(t, json.Unmarshal(updated, &placed))
+			want := tc.want
+			if want == "" {
+				want = "instance-ns"
+			}
+			assert.Equal(t, want, placed["metadata"].(map[string]interface{})["namespace"], "where UpdateNamespace places it")
+		})
+	}
+}

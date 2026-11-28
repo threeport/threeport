@@ -61,6 +61,23 @@ func keepsOperatorNamespace(metadata map[string]interface{}) bool {
 	return keep
 }
 
+// KeptNamespace returns the namespace UpdateNamespace places a resource in
+// whatever namespace it is given: the gateway namespace for a Gateway, and
+// the support-services namespace an object already names.  It is "" for any
+// other resource, which goes to the namespace given.
+func KeptNamespace(object map[string]interface{}) string {
+	if object["kind"] == "Gateway" {
+		return GatewaySystemNamespace
+	}
+	metadata, ok := object["metadata"].(map[string]interface{})
+	if ok && keepsOperatorNamespace(metadata) {
+		namespace, _ := metadata["namespace"].(string)
+		return namespace
+	}
+
+	return ""
+}
+
 // updateNamespace takes the JSON definition for a Kubernetes resource and sets
 // the namespace.
 func UpdateNamespace(jsonDef datatypes.JSON, namespace string) ([]byte, error) {
@@ -73,12 +90,11 @@ func UpdateNamespace(jsonDef datatypes.JSON, namespace string) ([]byte, error) {
 
 	// set the namespace field in the metadata
 	if metadata, ok := mapDef["metadata"].(map[string]interface{}); ok {
-		switch {
-		case mapDef["kind"] == "Gateway":
-			metadata["namespace"] = GatewaySystemNamespace
-		case keepsOperatorNamespace(metadata):
-			// leave a support-services namespace in place
-		default:
+		if kept := KeptNamespace(mapDef); kept != "" {
+			// a gateway goes to the gateway namespace, and a support-services
+			// namespace is left in place
+			metadata["namespace"] = kept
+		} else {
 			metadata["namespace"] = namespace
 		}
 	} else {
