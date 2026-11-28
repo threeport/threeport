@@ -332,6 +332,46 @@ func GenApiObjectMethods(gen *sdkgen.Generator, sdkConfig *sdk.SdkConfig) error 
 							})
 						})
 						f.Line()
+
+						// MarriedBases method emitted for any type with a
+						// marries foreign key, so its delete handler deletes
+						// each base in the same transaction
+						var marriedKeys []fkEntry
+						for _, fk := range foreignKeys {
+							if api.Relationship(fk.relationship) == api.RelationshipMarries {
+								marriedKeys = append(marriedKeys, fk)
+							}
+						}
+						if len(marriedKeys) > 0 {
+							f.Comment(fmt.Sprintf(
+								"MarriedBases returns the base object each marries foreign key on %s names, with only its ID set.",
+								apiObj.TypeName,
+							))
+							f.Func().Params(
+								Id(receiver).Op("*").Id(apiObj.TypeName),
+							).Id("MarriedBases").Params().Index().Any().BlockFunc(func(g *Group) {
+								g.Var().Id("bases").Index().Any()
+								for _, fk := range marriedKeys {
+									var targetTypeRef *Statement
+									if gen.Module && !localTypes[fk.objectType] {
+										targetTypeRef = Qual(
+											"github.com/threeport/threeport/pkg/api/v0",
+											fk.objectType,
+										)
+									} else {
+										targetTypeRef = Id(fk.objectType)
+									}
+									g.If(Id(receiver).Dot(fk.fieldName).Op("!=").Nil()).Block(
+										Id("base").Op(":=").Id("new").Call(targetTypeRef),
+										Id("base").Dot("ID").Op("=").Id(receiver).Dot(fk.fieldName),
+										Id("bases").Op("=").Append(Id("bases"), Id("base")),
+									)
+								}
+								g.Return(Id("bases"))
+							})
+							f.Line()
+						}
+
 						for _, fk := range foreignKeys {
 							if api.Relationship(fk.relationship) != api.RelationshipOwns {
 								continue

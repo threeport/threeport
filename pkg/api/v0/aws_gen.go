@@ -92,6 +92,17 @@ func (a *AwsEksKubernetesRuntimeDefinition) RelationshipTaggedForeignKeys() []Re
 	}}
 }
 
+// MarriedBases returns the base object each marries foreign key on AwsEksKubernetesRuntimeDefinition names, with only its ID set.
+func (a *AwsEksKubernetesRuntimeDefinition) MarriedBases() []any {
+	var bases []any
+	if a.KubernetesRuntimeDefinitionID != nil {
+		base := new(KubernetesRuntimeDefinition)
+		base.ID = a.KubernetesRuntimeDefinitionID
+		bases = append(bases, base)
+	}
+	return bases
+}
+
 // AssociationRequiredByTypes returns the fully-qualified type names of children referenced via has-many association slices on AwsEksKubernetesRuntimeDefinition.
 func (a *AwsEksKubernetesRuntimeDefinition) AssociationRequiredByTypes() []string {
 	return []string{new(AwsEksKubernetesRuntimeInstance).GetFullyQualifiedType()}
@@ -180,6 +191,17 @@ func (a *AwsEksKubernetesRuntimeInstance) RelationshipTaggedForeignKeys() []Rela
 		ObjectType:   new(KubernetesRuntimeInstance).GetFullyQualifiedType(),
 		Relationship: RelationshipMarries,
 	}}
+}
+
+// MarriedBases returns the base object each marries foreign key on AwsEksKubernetesRuntimeInstance names, with only its ID set.
+func (a *AwsEksKubernetesRuntimeInstance) MarriedBases() []any {
+	var bases []any
+	if a.KubernetesRuntimeInstanceID != nil {
+		base := new(KubernetesRuntimeInstance)
+		base.ID = a.KubernetesRuntimeInstanceID
+		bases = append(bases, base)
+	}
+	return bases
 }
 
 // NotificationPayload returns the notification payload that is delivered to the

@@ -336,14 +336,14 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Replace(
 }
 
 // Delete deletes a gcp gke kubernetes runtime definition from the Threeport API by name.
-// Delete removes the provider definition, then removes the runtime definition at KubernetesRuntimeDefinitionID.
+// The API deletes the kubernetes runtime definition it marries in the same request.
 func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*GcpGkeKubernetesRuntimeDefinitionConfig, error) {
 	gcpGkeKubernetesRuntimeDefinitionValues := g.GcpGkeKubernetesRuntimeDefinition
 
-	// find the provider definition that holds the runtime definition id
+	// find the provider definition by name
 	gcpGkeKubernetesRuntimeDefinition, err := client_v0.GetGcpGkeKubernetesRuntimeDefinitionByName(
 		apiClient,
 		apiEndpoint,
@@ -360,7 +360,7 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 		return nil, fmt.Errorf("failed to find gcp gke kubernetes runtime definition with name %s: %w", *gcpGkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// delete the provider definition so its reference stops blocking the runtime definition
+	// delete the provider definition and the kubernetes runtime definition it marries
 	deletedGcpGkeKubernetesRuntimeDefinition, err := client_v0.DeleteGcpGkeKubernetesRuntimeDefinition(
 		apiClient,
 		apiEndpoint,
@@ -368,18 +368,6 @@ func (g *GcpGkeKubernetesRuntimeDefinitionConfig) Delete(
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete gcp gke kubernetes runtime definition from Threeport API: %w", err)
-	}
-
-	// delete the runtime definition at the stored id
-	if gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID != nil {
-		_, err = client_v0.DeleteKubernetesRuntimeDefinition(
-			apiClient,
-			apiEndpoint,
-			*gcpGkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
-		)
-		if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-			return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
-		}
 	}
 
 	// return the deleted provider fields

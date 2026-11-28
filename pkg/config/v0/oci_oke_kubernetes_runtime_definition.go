@@ -308,33 +308,32 @@ func (o *OciOkeKubernetesRuntimeDefinitionConfig) Replace(
 	return updatedOciOkeKubernetesRuntimeDefinitionConfig, nil
 }
 
-// Delete deletes a oci oke kubernetes runtime definition from the Threeport API.
+// Delete deletes a oci oke kubernetes runtime definition from the Threeport API by name.
+// The API deletes the kubernetes runtime definition it marries in the same request.
 func (o *OciOkeKubernetesRuntimeDefinitionConfig) Delete(
 	apiClient *http.Client,
 	apiEndpoint string,
 ) (*OciOkeKubernetesRuntimeDefinitionConfig, error) {
 	ociOkeKubernetesRuntimeDefinitionValues := o.OciOkeKubernetesRuntimeDefinition
-	// get oci oke kubernetes runtime definition by name
+
+	// find the provider definition by name
 	ociOkeKubernetesRuntimeDefinition, err := client_v0.GetOciOkeKubernetesRuntimeDefinitionByName(
 		apiClient,
 		apiEndpoint,
 		*ociOkeKubernetesRuntimeDefinitionValues.Name,
 	)
+
+	// return the config values when the provider definition is missing
+	if errors.Is(err, client_lib.ErrObjectNotFound) {
+		return &OciOkeKubernetesRuntimeDefinitionConfig{
+			OciOkeKubernetesRuntimeDefinition: ociOkeKubernetesRuntimeDefinitionValues,
+		}, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to find oci oke kubernetes runtime definition with name %s: %w", *ociOkeKubernetesRuntimeDefinitionValues.Name, err)
 	}
 
-	// delete associated kubernetes runtime definition
-	_, err = client_v0.DeleteKubernetesRuntimeDefinition(
-		apiClient,
-		apiEndpoint,
-		*ociOkeKubernetesRuntimeDefinition.KubernetesRuntimeDefinitionID,
-	)
-	if err != nil && !errors.Is(err, client_lib.ErrObjectNotFound) {
-		return nil, fmt.Errorf("failed to delete associated kubernetes runtime definition: %w", err)
-	}
-
-	// delete oci oke kubernetes runtime definition
+	// delete the provider definition and the kubernetes runtime definition it marries
 	deletedOciOkeKubernetesRuntimeDefinition, err := client_v0.DeleteOciOkeKubernetesRuntimeDefinition(
 		apiClient,
 		apiEndpoint,
