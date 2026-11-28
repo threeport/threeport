@@ -101,10 +101,12 @@ func moduleControllerContainerName(deploymentName string) string {
 	return strings.TrimPrefix(path.Base(deploymentName), moduleImageNamePrefix)
 }
 
-// ModuleCopiedSecretNames returns the secrets the installer copies into a module namespace.
+// ModuleCopiedSecretNames returns the secrets the installer copies into a
+// module namespace.  The database's root client certificate isn't among
+// them: a module connects as the threeport user, to the control plane's
+// database, which the control plane creates.
 func ModuleCopiedSecretNames() []string {
 	return []string{
-		dbRootCertSecretName,
 		dbThreeportCertSecretName,
 		EncryptionKeySecret,
 		controllerConfigSecretName,

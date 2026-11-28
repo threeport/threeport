@@ -250,11 +250,15 @@ func TestDatabaseBackupStatementsIncludesEachModuleDatabase(t *testing.T) {
 		"CREATE SCHEDULE threeport_api_backup FOR BACKUP DATABASE threeport_api, threeport_acme_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit' RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS ignore_existing_backups;",
 	}, got)
 
-	// a backup with no module database leaves the schedule unchanged
+	// a backup with no module database points the schedule at the control
+	// plane's alone, dropping a module database an earlier backup added to
+	// it, which an operator may since have dropped
 	coreOnly, err := databaseBackupStatements("bucket", "primary-02", nil)
 	require.NoError(t, err)
 	assert.Equal(t, []string{
 		"BACKUP DATABASE threeport_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit';",
+		"DROP SCHEDULES WITH x AS (SHOW SCHEDULES) SELECT id FROM x WHERE label = 'threeport_api_backup';",
+		"CREATE SCHEDULE threeport_api_backup FOR BACKUP DATABASE threeport_api INTO 'gs://bucket/primary-02/threeport_api?AUTH=implicit' RECURRING '@hourly' FULL BACKUP '@daily' WITH SCHEDULE OPTIONS ignore_existing_backups;",
 	}, coreOnly)
 
 	// the control plane database is not backed up a second time

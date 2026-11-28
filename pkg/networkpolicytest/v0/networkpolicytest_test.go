@@ -287,7 +287,7 @@ func TestAssertModuleDatabasePolicyCatchesAWrongPolicy(t *testing.T) {
 			change: func(spec, _ map[string]interface{}) {
 				spec["ingress"] = []interface{}{}
 			},
-			want: "whose db-init and database-migrator",
+			want: "whose database-migrator reaches the database too",
 		},
 		"every pod selected": {
 			change: func(spec, _ map[string]interface{}) {

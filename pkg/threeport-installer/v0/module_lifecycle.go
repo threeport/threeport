@@ -167,33 +167,39 @@ func retagModuleAPI(
 		return err
 	}
 
-	// leave a deployment whose containers are missing or already current
+	// restart a deployment whose images differ onto the recorded ones, and
+	// leave one whose containers are missing or already current
 	apiImage := moduleRestAPIImage(imageNamespace, kebab, imageTag)
 	migratorImage := moduleMigratorImage(imageNamespace, kebab, imageTag)
 	currentAPI, apiOK := namedContainerImage(deployment, "containers", moduleAPIContainerName)
 	currentMigrator, migratorOK := namedContainerImage(
 		deployment, "initContainers", moduleMigratorContainerName,
 	)
-	if !apiOK || !migratorOK || (currentAPI == apiImage && currentMigrator == migratorImage) {
-		return nil
+	if apiOK && migratorOK && (currentAPI != apiImage || currentMigrator != migratorImage) {
+		if err := restartModuleDeployment(
+			kubeClient,
+			namespace,
+			name,
+			controlPlaneNamespace,
+			map[string]string{
+				"containers":     apiImage,
+				"initContainers": migratorImage,
+			},
+			map[string]string{
+				"containers":     moduleAPIContainerName,
+				"initContainers": moduleMigratorContainerName,
+			},
+			time.Now().UTC(),
+		); err != nil {
+			return err
+		}
 	}
 
-	// restart onto the recorded images
-	return restartModuleDeployment(
-		kubeClient,
-		namespace,
-		name,
-		controlPlaneNamespace,
-		map[string]string{
-			"containers":     apiImage,
-			"initContainers": migratorImage,
-		},
-		map[string]string{
-			"containers":     moduleAPIContainerName,
-			"initContainers": moduleMigratorContainerName,
-		},
-		time.Now().UTC(),
-	)
+	// the deployment no longer mounts what a module's own database was
+	// created with.  It runs whether or not the images changed, so a
+	// cleanup that failed after the deployment was restarted is retried by
+	// the next reconcile, which finds the images current.
+	return RemoveStaleModuleDatabaseInit(kubeClient, controlPlaneNamespace, namespace)
 }
 
 // retagModuleController restarts one controller deployment when its image differs.

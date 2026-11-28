@@ -62,8 +62,36 @@ func TestOnlyTheCoreMigratorCreatesTheBackupSchedule(t *testing.T) {
 			t.Errorf("a module's migrator contains %q", unwanted)
 		}
 	}
-	if !strings.Contains(module, "DbInitFilename") {
-		t.Error("a module's migrator no longer runs its init script")
+}
+
+// TestOnlyTheCoreMigratorInitializesTheDatabase covers #825: the core
+// migrator's initialize creates the control plane's database and user from
+// the init script the install mounts.  A module's tables are in that
+// database, which the control plane initializes, so a module's migrator has
+// no initialize, and no init script to read: it accepts only goose commands.
+func TestOnlyTheCoreMigratorInitializesTheDatabase(t *testing.T) {
+	core := generateMigratorMain(t, &gen.Generator{}, &sdk.SdkConfig{})
+	for _, want := range []string{
+		"func initializeDb(", `case "initialize":`, "DbInitFilename", "DbInitLocation",
+		`append(gooseCommands, "initialize")`, "database-migrator -env-file=/etc/threeport/env initialize",
+	} {
+		if !strings.Contains(core, want) {
+			t.Errorf("the core migrator does not contain %q", want)
+		}
+	}
+
+	module := generateMigratorMain(
+		t,
+		&gen.Generator{Module: true, ModulePath: "example.com/widget-module"},
+		&sdk.SdkConfig{ModuleName: "Widget", ApiNamespace: "widget.example.com"},
+	)
+	for _, unwanted := range []string{"initializeDb", `"initialize"`, "DbInitFilename", "DbInitLocation", " initialize\n"} {
+		if strings.Contains(module, unwanted) {
+			t.Errorf("a module's migrator contains %q", unwanted)
+		}
+	}
+	if !strings.Contains(module, "return gooseCommands") {
+		t.Error("a module's migrator accepts more than the goose commands")
 	}
 }
 

@@ -85,30 +85,14 @@ func TestRememberedModuleScalesSurviveAStoppedAPI(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-// TestModuleDatabaseNamesSkipTheControlPlaneDatabase covers a module that
-// keeps its own database and a core module that does not.
-func TestModuleDatabaseNamesSkipTheControlPlaneDatabase(t *testing.T) {
-	// a core module and a repeated name are left out
-	core := true
-	names, err := moduleDatabaseNames([]api.ModuleApi{
-		{Name: util.Ptr("threeport"), Core: &core},
-		{Name: util.Ptr("my-module")},
-		{Name: util.Ptr("")},
-		{Name: util.Ptr("my-module")},
-	})
-	require.NoError(t, err)
-	require.Equal(t, []string{"threeport_my_module_api"}, names)
-}
-
-// TestModuleDatabaseNamesUseTheRegisteredShortName covers an SDK registration.
-// The registered name carries the API namespace, and the database uses the short name.
-func TestModuleDatabaseNamesUseTheRegisteredShortName(t *testing.T) {
-	// a registered module API name derives the database the installer creates
-	names, err := moduleDatabaseNames([]api.ModuleApi{
-		{Name: util.Ptr("example.com/my-module-module-api")},
-	})
-	require.NoError(t, err)
-	require.Equal(t, []string{"threeport_my_module_api"}, names)
+// TestABackupTakesNoModuleDatabase covers #825's module databases in a
+// control plane's backup: none.  A module's tables are in the control
+// plane's database, which the backup takes, and a module installed since
+// has no database of its own, so naming one would fail the backup.
+func TestABackupTakesNoModuleDatabase(t *testing.T) {
+	cpi := NewInstaller(Namespace("primary-13"))
+	require.Empty(t, cpi.discoverModuleDatabases())
+	require.NotNil(t, cpi.discoverModuleDatabases(), "an empty list, which a retry tells from no record")
 }
 
 // TestRememberedModuleDatabasesSurviveAStoppedAPI covers a retry that cannot list databases.

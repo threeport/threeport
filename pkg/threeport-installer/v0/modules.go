@@ -5,11 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/iancoleman/strcase"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -20,7 +17,6 @@ import (
 	"k8s.io/client-go/dynamic"
 
 	"github.com/threeport/threeport/pkg/api-server/v0/database"
-	api "github.com/threeport/threeport/pkg/api/v0"
 	client "github.com/threeport/threeport/pkg/client/v0"
 	util "github.com/threeport/threeport/pkg/util/v0"
 )
@@ -346,58 +342,15 @@ const (
 	moduleDatabaseConfigKey = "databases"
 )
 
-// moduleDatabaseName returns the database created for a module.
-func moduleDatabaseName(moduleName string) string {
-	return fmt.Sprintf("threeport_%s_api", strcase.ToSnake(moduleName))
-}
-
-// moduleDatabaseNames returns the database of each module that keeps its own.
-// A core module shares the control plane database and is left out.
-func moduleDatabaseNames(moduleApis []api.ModuleApi) ([]string, error) {
-	// skip the control plane database and repeated names
-	seen := map[string]bool{}
-	var names []string
-	for _, moduleApi := range moduleApis {
-		if moduleApi.Core != nil && *moduleApi.Core {
-			continue
-		}
-		moduleName := util.DerefString(moduleApi.Name)
-		if moduleName == "" {
-			continue
-		}
-		// the registered name is namespace/short-module-api, and the database uses the short name
-		shortName := moduleKebab(moduleName)
-		if shortName == "" {
-			shortName = moduleName
-		}
-		name := moduleDatabaseName(shortName)
-		if name == DatabaseName || seen[name] {
-			continue
-		}
-		if !moduleDatabaseNamePattern.MatchString(name) {
-			return nil, fmt.Errorf("module database name %q is not a sql identifier", name)
-		}
-		seen[name] = true
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-// discoverModuleDatabases returns the module databases registered with the API.
-func (cpi *ControlPlaneInstaller) discoverModuleDatabases(
-	apiClient *http.Client,
-	apiEndpoint string,
-) ([]string, error) {
-	// read the registered module APIs
-	moduleApis, err := client.GetModuleApis(apiClient, apiEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get registered module APIs: %w", err)
-	}
-	if moduleApis == nil {
-		return []string{}, nil
-	}
-	return moduleDatabaseNames(*moduleApis)
+// discoverModuleDatabases returns the databases of the registered modules
+// that a backup of the control plane takes with its own: none.  A module's
+// tables are in the control plane's database, which every backup takes.
+// Modules installed before stopped creating an empty database of their own
+// as well, which nothing wrote to; one installed since has none, and the
+// operator may drop the old ones, so a backup naming them would fail.  A
+// backup an earlier version recorded them for still restores them.
+func (cpi *ControlPlaneInstaller) discoverModuleDatabases() []string {
+	return []string{}
 }
 
 // rememberModuleDatabases stores the module databases in the control plane namespace.
