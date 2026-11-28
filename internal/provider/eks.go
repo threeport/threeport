@@ -42,6 +42,12 @@ type KubernetesRuntimeInfraEKS struct {
 	// Kubernetes version of the EKS cluster.
 	KubernetesVersion string
 
+	// What happens to the cluster when its Kubernetes version leaves EKS
+	// standard support, STANDARD or EXTENDED, as its upgrade policy's
+	// support type.  If empty, STANDARD is used.  A cluster already in the
+	// stack keeps the one it was created with.
+	SupportType string
+
 	// If true, the cluster's Kubernetes API server audit, API and
 	// authenticator logs are sent to CloudWatch Logs, in a log group the
 	// stack creates first with a retention period.
@@ -212,6 +218,18 @@ func (i *KubernetesRuntimeInfraEKS) keepStackVersion(deployment json.RawMessage)
 // cluster Create created or found in the stack, such as "1.36".
 func (i *KubernetesRuntimeInfraEKS) CreatedKubernetesVersion() string {
 	return i.kubernetesVersion()
+}
+
+// CreatedSupportType returns the support type of the cluster Create created
+// or found in the stack: the one a cluster in the stack was created with,
+// "" for one created before Threeport set it, whose support type EKS chose,
+// and SupportType, or STANDARD when it is empty, for a new one.
+func (i *KubernetesRuntimeInfraEKS) CreatedSupportType() string {
+	if i.stackSupportType != nil {
+		return *i.stackSupportType
+	}
+
+	return v0.EksSupportTypeOrDefault(&i.SupportType)
 }
 
 // keepStackCluster records what the cluster the stack's deployment holds,

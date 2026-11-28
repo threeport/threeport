@@ -338,3 +338,34 @@ func TestTheProviderDefinitionRecordsItsAuditLog(t *testing.T) {
 		assert.Equal(t, c.want, sent["AuditLog"], c.provider)
 	}
 }
+
+// TestTheEksDefinitionRecordsItsSupportType covers #796's support type on
+// the EKS definition the reconciler creates: the default, STANDARD,
+// recorded so the definition shows what happens to its clusters when their
+// version leaves standard support.
+func TestTheEksDefinitionRecordsItsSupportType(t *testing.T) {
+	api := machinetest.NewAPIStub(t)
+	var sent map[string]any
+	api.Mux.HandleFunc(v0.PathAwsEksKubernetesRuntimeDefinitions, func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(body, &sent))
+		machinetest.WriteResponse(t, w, http.StatusCreated, []apiserver_lib.Object{sent})
+	})
+	r := &controller.Reconciler{APIClient: api.Client, APIServer: api.Addr}
+	log := logr.Discard()
+
+	definition := &v0.KubernetesRuntimeDefinition{
+		Common:           v0.Common{ID: util.Ptr(uint(7))},
+		Definition:       v0.Definition{Name: util.Ptr("remote")},
+		Reconciliation:   v0.Reconciliation{Reconciled: util.Ptr(false)},
+		InfraProvider:    util.Ptr(v0.KubernetesRuntimeInfraProviderEKS),
+		HighAvailability: util.Ptr(false),
+		NodeSize:         util.Ptr("Medium"),
+		NodeProfile:      util.Ptr("Balanced"),
+		NodeMaximum:      util.Ptr(10),
+	}
+	_, err := v0KubernetesRuntimeDefinitionCreated(r, definition, &log)
+	require.NoError(t, err)
+	assert.Equal(t, "STANDARD", sent["SupportType"])
+}

@@ -265,7 +265,12 @@ how:
   `STABLE`. They can't be changed once the definition exists.
 - **EKS** upgrades the control plane to the next version when its version
   leaves standard support, rather than keeping it on extended support at a
-  higher hourly charge. The node group isn't upgraded with it.
+  higher hourly charge. The node group isn't upgraded with it. An EKS
+  definition can set `SupportType` to `EXTENDED` to keep its clusters on their
+  version in extended support instead, such as to buy time before an upgrade,
+  or to `STANDARD`, the default. It can't be changed once the definition
+  exists, and a cluster created before Threeport set it keeps the support type
+  EKS gave it.
 
 ### Upgrading a Cluster
 

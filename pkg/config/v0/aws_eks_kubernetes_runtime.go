@@ -32,6 +32,7 @@ type AwsEksKubernetesRuntimeValues struct {
 	DeletionProtection           *bool
 	NodeGroupPerZone             *bool
 	KubernetesVersion            *string
+	SupportType                  *string
 	Region                       *string
 	Reconciled                   *bool
 	Age                          *string
@@ -163,6 +164,7 @@ func (a *AwsEksKubernetesRuntimeConfig) GetOperations(
 			DeletionProtection:           a.AwsEksKubernetesRuntime.DeletionProtection,
 			NodeGroupPerZone:             a.AwsEksKubernetesRuntime.NodeGroupPerZone,
 			KubernetesVersion:            a.AwsEksKubernetesRuntime.KubernetesVersion,
+			SupportType:                  a.AwsEksKubernetesRuntime.SupportType,
 		},
 	}
 	operations.AppendOperation(util.Operation{
@@ -276,6 +278,7 @@ func mapToAwsEksKubernetesRuntimeDefinedInstances(
 						DeletionProtection:           def.AwsEksKubernetesRuntimeDefinition.DeletionProtection,
 						NodeGroupPerZone:             def.AwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
 						KubernetesVersion:            def.AwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+						SupportType:                  def.AwsEksKubernetesRuntimeDefinition.SupportType,
 						Region:                       inst.AwsEksKubernetesRuntimeInstance.Region,
 						Reconciled:                   inst.AwsEksKubernetesRuntimeInstance.Reconciled,
 						Age:                          inst.AwsEksKubernetesRuntimeInstance.Age,

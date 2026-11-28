@@ -62,6 +62,7 @@ func v0KubernetesRuntimeDefinitionCreated(
 			PrivateApi:                    kubernetesRuntimeDefinition.PrivateApi,
 			AllowedCidrs:                  kubernetesRuntimeDefinition.AllowedCidrs,
 			KubernetesVersion:             util.Ptr(v0.KubernetesVersionOrDefault(kubernetesRuntimeDefinition.KubernetesVersion)),
+			SupportType:                   util.Ptr(v0.DefaultEksSupportType),
 			AuditLog:                      util.Ptr(util.Deref(kubernetesRuntimeDefinition.AuditLog)),
 			DeletionProtection:            util.Ptr(kubernetesRuntimeDefinition.DeletionProtection != nil && *kubernetesRuntimeDefinition.DeletionProtection),
 			KubernetesRuntimeDefinitionID: kubernetesRuntimeDefinition.ID,

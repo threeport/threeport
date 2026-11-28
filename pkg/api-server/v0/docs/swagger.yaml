@@ -140,6 +140,14 @@ definitions:
           The profile to associate with the definition.  Profile is a named
           standard configuration for a definition object.
         type: integer
+      SupportType:
+        description: |-
+          What happens to the clusters when their Kubernetes version leaves EKS
+          standard support: STANDARD, where AWS upgrades their control planes to
+          the next version, or EXTENDED, where they stay on that version in
+          extended support, at a higher hourly charge.  If unset, STANDARD is
+          used.  It can't be changed after creation.
+        type: string
       TierID:
         description: |-
           The tier to associate with the definition.  Tier is a level of

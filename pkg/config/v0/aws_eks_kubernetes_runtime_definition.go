@@ -31,6 +31,7 @@ type AwsEksKubernetesRuntimeDefinitionValues struct {
 	DefaultNodeGroupMinimumSize  *int
 	DefaultNodeGroupMaximumSize  *int
 	KubernetesVersion            *string
+	SupportType                  *string
 	AuditLog                     *bool
 	DeletionProtection           *bool
 	NodeGroupPerZone             *bool
@@ -76,6 +77,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Get(
 				DefaultNodeGroupMinimumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 				DefaultNodeGroupMaximumSize:  awsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 				KubernetesVersion:            awsEksKubernetesRuntimeDefinition.KubernetesVersion,
+				SupportType:                  awsEksKubernetesRuntimeDefinition.SupportType,
 				AuditLog:                     awsEksKubernetesRuntimeDefinition.AuditLog,
 				DeletionProtection:           awsEksKubernetesRuntimeDefinition.DeletionProtection,
 				NodeGroupPerZone:             awsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
@@ -132,6 +134,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 		DefaultNodeGroupMinimumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMinimumSize,
 		DefaultNodeGroupMaximumSize:   awsEksKubernetesRuntimeDefinitionValues.DefaultNodeGroupMaximumSize,
 		KubernetesVersion:             util.Ptr(api_v0.KubernetesVersionOrDefault(awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion)),
+		SupportType:                   util.Ptr(api_v0.EksSupportTypeOrDefault(awsEksKubernetesRuntimeDefinitionValues.SupportType)),
 		AuditLog:                      awsEksKubernetesRuntimeDefinitionValues.AuditLog,
 		DeletionProtection:            awsEksKubernetesRuntimeDefinitionValues.DeletionProtection,
 		NodeGroupPerZone:              awsEksKubernetesRuntimeDefinitionValues.NodeGroupPerZone,
@@ -159,6 +162,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Create(
 			DefaultNodeGroupMinimumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  createdAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            createdAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			SupportType:                  createdAwsEksKubernetesRuntimeDefinition.SupportType,
 			AuditLog:                     createdAwsEksKubernetesRuntimeDefinition.AuditLog,
 			DeletionProtection:           createdAwsEksKubernetesRuntimeDefinition.DeletionProtection,
 			NodeGroupPerZone:             createdAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
@@ -214,6 +218,11 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 	if awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion != nil {
 		updatedAwsEksKubernetesRuntimeDefinition.KubernetesVersion = awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion
 	}
+	// the support type is recorded on create and can't change, so a config
+	// that leaves it out keeps it
+	if awsEksKubernetesRuntimeDefinitionValues.SupportType != nil {
+		updatedAwsEksKubernetesRuntimeDefinition.SupportType = awsEksKubernetesRuntimeDefinitionValues.SupportType
+	}
 	// the audit log is set on create and can't change, so a config that
 	// leaves it out keeps it
 	if awsEksKubernetesRuntimeDefinitionValues.AuditLog != nil {
@@ -251,6 +260,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Replace(
 			DefaultNodeGroupMinimumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  replacedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            replacedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			SupportType:                  replacedAwsEksKubernetesRuntimeDefinition.SupportType,
 			AuditLog:                     replacedAwsEksKubernetesRuntimeDefinition.AuditLog,
 			DeletionProtection:           replacedAwsEksKubernetesRuntimeDefinition.DeletionProtection,
 			NodeGroupPerZone:             replacedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
@@ -307,6 +317,7 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Delete(
 			DefaultNodeGroupMinimumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMinimumSize,
 			DefaultNodeGroupMaximumSize:  deletedAwsEksKubernetesRuntimeDefinition.DefaultNodeGroupMaximumSize,
 			KubernetesVersion:            deletedAwsEksKubernetesRuntimeDefinition.KubernetesVersion,
+			SupportType:                  deletedAwsEksKubernetesRuntimeDefinition.SupportType,
 			AuditLog:                     deletedAwsEksKubernetesRuntimeDefinition.AuditLog,
 			DeletionProtection:           deletedAwsEksKubernetesRuntimeDefinition.DeletionProtection,
 			NodeGroupPerZone:             deletedAwsEksKubernetesRuntimeDefinition.NodeGroupPerZone,
@@ -356,6 +367,11 @@ func (a *AwsEksKubernetesRuntimeDefinitionConfig) Validate() error {
 		api_v0.KubernetesRuntimeInfraProviderEKS,
 		awsEksKubernetesRuntimeDefinitionValues.KubernetesVersion,
 	); err != nil {
+		multiError.AppendError(err)
+	}
+
+	// validate the support type before the API is asked
+	if err := api_v0.ValidateEksSupportType(awsEksKubernetesRuntimeDefinitionValues.SupportType); err != nil {
 		multiError.AppendError(err)
 	}
 

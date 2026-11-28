@@ -161,3 +161,39 @@ func TestTheClusterCreateKeptIsReported(t *testing.T) {
 	assert.Equal(t, "1.35", oke.CreatedKubernetesVersion())
 	assert.Empty(t, (&KubernetesRuntimeInfraOKE{Version: "garbage"}).CreatedKubernetesVersion())
 }
+
+// TestAnEksClusterIsCreatedWithItsDefinitionsSupportType covers #796: a new
+// EKS cluster's upgrade policy has its definition's support type, STANDARD
+// when it has none, and a cluster already in the stack keeps the one it was
+// created with, whichever its definition asks for.  CreatedSupportType
+// reports the one the cluster has, and none for a cluster created before
+// Threeport set it.
+func TestAnEksClusterIsCreatedWithItsDefinitionsSupportType(t *testing.T) {
+	policy := func(supportType, deployment string) (any, string) {
+		infra := testEksInfra(2)
+		infra.SupportType = supportType
+		infra.keepStackSupportType([]byte(deployment))
+		clusters := runEksPulumiProgram(t, infra).byType(eksClusterTypeToken)
+		require.Len(t, clusters, 1)
+		return clusters[0].inputs["upgradePolicy"], infra.CreatedSupportType()
+	}
+	newStack := `{"resources":[]}`
+
+	upgradePolicy, created := policy("EXTENDED", newStack)
+	assert.Equal(t, map[string]any{"supportType": "EXTENDED"}, upgradePolicy)
+	assert.Equal(t, "EXTENDED", created)
+
+	upgradePolicy, created = policy("", newStack)
+	assert.Equal(t, map[string]any{"supportType": "STANDARD"}, upgradePolicy, "none asked for")
+	assert.Equal(t, "STANDARD", created)
+
+	upgradePolicy, created = policy("EXTENDED",
+		`{"resources":[{"type":"aws:eks/cluster:Cluster","inputs":{"upgradePolicy":{"supportType":"STANDARD"}}}]}`)
+	assert.Equal(t, map[string]any{"supportType": "STANDARD"}, upgradePolicy, "the cluster's own")
+	assert.Equal(t, "STANDARD", created)
+
+	upgradePolicy, created = policy("STANDARD",
+		`{"resources":[{"type":"aws:eks/cluster:Cluster","inputs":{"version":"1.32"}}]}`)
+	assert.Nil(t, upgradePolicy, "a cluster created before the policy was set")
+	assert.Empty(t, created)
+}
