@@ -185,37 +185,90 @@ func (g *GcpGkeKubernetesRuntimeInstance) beforeCreate(tx *gorm.DB) error {
 func (g *GcpGkeKubernetesRuntimeInstance) beforeUpdate(tx *gorm.DB) error {
 	// ReservedNatAddress decides how the cluster's Cloud NAT is provisioned,
 	// so changing it would change the cluster's outbound addresses under it
-	changed, err := lib.IsFieldChanged(tx, "ReservedNatAddress")
-	if err != nil {
-		return err
-	}
-	if !changed {
-		return nil
-	}
-
-	// a patch's receiver is the stored row, while a replace's receiver is
-	// the incoming object, so the stored row is read back for a replace
-	stored := tx.Statement.Model
+	var stored any
+	var incoming *bool
 	if lib.IsFullReplace(tx) {
+		changed, err := lib.IsFieldChanged(tx, "ReservedNatAddress")
+		if err != nil {
+			return err
+		}
+		if !changed {
+			return nil
+		}
+		incomingInstance, ok := lib.IncomingValues(tx).(*GcpGkeKubernetesRuntimeInstance)
+		if !ok {
+			return fmt.Errorf(
+				"cannot check ReservedNatAddress: update carries %T",
+				lib.IncomingValues(tx),
+			)
+		}
+		incoming = incomingInstance.ReservedNatAddress
+
+		// a replace's receiver is the incoming object, so the stored row is
+		// read back
 		if stored, err = lib.LoadObjectFromDB(tx); err != nil {
 			return err
 		}
+	} else {
+		// a PATCH leaves the field as it is when it doesn't carry it
+		value, carried, err := patchedReservedNatAddress(lib.IncomingValues(tx))
+		if err != nil {
+			return err
+		}
+		if !carried {
+			return nil
+		}
+		incoming = value
+
+		// a PATCH's receiver is the row as the handler loaded it, before
+		// the transaction began, so it is checked against the row it
+		// writes over, which stays locked until it commits
+		if stored, err = lib.LockObjectInDB(tx); err != nil {
+			return err
+		}
 	}
-	storedInstance, storedOk := stored.(*GcpGkeKubernetesRuntimeInstance)
-	incomingInstance, incomingOk := lib.IncomingValues(tx).(*GcpGkeKubernetesRuntimeInstance)
-	if !storedOk || !incomingOk {
-		return fmt.Errorf(
-			"cannot check ReservedNatAddress: update carries %T",
-			lib.IncomingValues(tx),
-		)
+	storedInstance, ok := stored.(*GcpGkeKubernetesRuntimeInstance)
+	if !ok {
+		return fmt.Errorf("cannot check ReservedNatAddress: loaded %T", stored)
 	}
 
 	reserved := func(value *bool) bool { return value != nil && *value }
-	if reserved(storedInstance.ReservedNatAddress) != reserved(incomingInstance.ReservedNatAddress) {
+	if reserved(storedInstance.ReservedNatAddress) != reserved(incoming) {
 		return util.NewBadRequestError(ErrMsgReservedNatAddressImmutable)
 	}
 
 	return nil
+}
+
+// patchedReservedNatAddress returns the ReservedNatAddress a PATCH of a GKE
+// runtime instance writes, and whether it writes it at all: a PATCH with the
+// object writes the field when it is set, and a PATCH with a map when the
+// map has the field's name or column.
+func patchedReservedNatAddress(update any) (*bool, bool, error) {
+	switch values := update.(type) {
+	case *GcpGkeKubernetesRuntimeInstance:
+		return values.ReservedNatAddress, values.ReservedNatAddress != nil, nil
+	case map[string]interface{}:
+		for _, key := range []string{"ReservedNatAddress", "reserved_nat_address"} {
+			value, found := values[key]
+			if !found {
+				continue
+			}
+			switch typed := value.(type) {
+			case nil:
+				return nil, true, nil
+			case bool:
+				return &typed, true, nil
+			case *bool:
+				return typed, true, nil
+			default:
+				return nil, false, fmt.Errorf("cannot check ReservedNatAddress: update sets it to %T", value)
+			}
+		}
+		return nil, false, nil
+	default:
+		return nil, false, fmt.Errorf("cannot check ReservedNatAddress: update carries %T", update)
+	}
 }
 
 // ErrMsgReservedNatAddressImmutable is the rejection of an update that
