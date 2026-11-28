@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -167,4 +168,56 @@ func TestTheUpgradeGivesTheMigratorWhatItBacksUpWith(t *testing.T) {
 		assert.Equal(t, installer.DbBackupConfigLocation, mounts[installer.DbBackupConfigName])
 		assert.Equal(t, "/etc/threeport/db-certs", mounts["db-migrator-certs"])
 	})
+}
+
+// TestAnImageUpgradeRemovesTheLegacyModuleInstallAccount covers #826 for
+// `tptctl upgrade control-plane image`, and the control plane controller's
+// image reconcile, which move the control plane's images without installing
+// its controllers: on a control plane that installed a module on
+// v0.7.0-rc.5 or rc.6, they remove the account its install job ran as and
+// that account's binding to cluster-admin, which nothing uses anymore.
+func TestAnImageUpgradeRemovesTheLegacyModuleInstallAccount(t *testing.T) {
+	originalAttempts, originalPoll := installer.RolloutAttempts, installer.RolloutPollSeconds
+	installer.RolloutAttempts, installer.RolloutPollSeconds = 1, 0
+	t.Cleanup(func() { installer.RolloutAttempts, installer.RolloutPollSeconds = originalAttempts, originalPoll })
+
+	serviceAccounts := schema.GroupVersionResource{Version: "v1", Resource: "serviceaccounts"}
+	bindings := schema.GroupVersionResource{Group: "rbac.authorization.k8s.io", Version: "v1", Resource: "clusterrolebindings"}
+	kubeClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{deploymentsGVR: "DeploymentList", configMapsGVR: "ConfigMapList"},
+		apiServerFromBeforeMigrationBackups(),
+		rolledOutDeployment(installer.ThreeportAgentDeployName, map[string]interface{}{
+			"containers": []interface{}{
+				container(installer.ThreeportAgentContainerName, "ghcr.io/threeport/threeport-agent:v0.6.0"),
+			},
+		}),
+		&unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "v1",
+			"kind":       "ServiceAccount",
+			"metadata":   map[string]interface{}{"name": "module-install", "namespace": upgradeTestNamespace},
+		}},
+		&unstructured.Unstructured{Object: map[string]interface{}{
+			"apiVersion": "rbac.authorization.k8s.io/v1",
+			"kind":       "ClusterRoleBinding",
+			"metadata":   map[string]interface{}{"name": "module-install-" + upgradeTestNamespace},
+			"roleRef":    map[string]interface{}{"apiGroup": "rbac.authorization.k8s.io", "kind": "ClusterRole", "name": "cluster-admin"},
+		}},
+	)
+	mapper := meta.NewDefaultRESTMapper([]schema.GroupVersion{
+		{Version: "v1"}, {Group: "apps", Version: "v1"}, {Group: "rbac.authorization.k8s.io", Version: "v1"},
+	})
+	mapper.Add(schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}, meta.RESTScopeNamespace)
+	for _, kind := range []string{"ConfigMap", "ServiceAccount"} {
+		mapper.Add(schema.GroupVersionKind{Version: "v1", Kind: kind}, meta.RESTScopeNamespace)
+	}
+	mapper.Add(schema.GroupVersionKind{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: "ClusterRoleBinding"}, meta.RESTScopeRoot)
+	restMapper := meta.RESTMapper(mapper)
+
+	require.NoError(t, installer.UpdateDeploymentImageTag("v0.7.0", "", upgradeTestNamespace, "", kubeClient, &restMapper, nil, true))
+
+	_, err := kubeClient.Resource(serviceAccounts).Namespace(upgradeTestNamespace).Get(context.Background(), "module-install", metav1.GetOptions{})
+	assert.True(t, k8serrors.IsNotFound(err), "the account is removed")
+	_, err = kubeClient.Resource(bindings).Get(context.Background(), "module-install-"+upgradeTestNamespace, metav1.GetOptions{})
+	assert.True(t, k8serrors.IsNotFound(err), "and its binding to cluster-admin")
 }

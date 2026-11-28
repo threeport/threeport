@@ -84,15 +84,48 @@ const (
 const ModuleInstallJobEnv = "THREEPORT_MODULE_INSTALL_JOB"
 
 const (
-	moduleInstallConfigKey      = "config.yaml"
-	moduleInstallConfigPath     = "/root/.threeport/config.yaml"
-	moduleWorkloadPrefix        = "threeport-"
-	moduleInstallServiceAccount = "module-install"
+	moduleInstallConfigKey  = "config.yaml"
+	moduleInstallConfigPath = "/root/.threeport/config.yaml"
+	moduleWorkloadPrefix    = "threeport-"
 )
 
-// moduleInstallBindingName returns the cluster role binding name for one control plane.
-func moduleInstallBindingName(namespace string) string {
-	return moduleInstallServiceAccount + "-" + namespace
+// legacyModuleInstallServiceAccount is the account a module install job ran
+// as in v0.7.0-rc.5 and rc.6, in the control plane's namespace, bound to
+// cluster-admin by a cluster role binding named by
+// legacyModuleInstallBindingName.  A job now runs as the control plane
+// controller's account, which ensureControlPlaneControllerAccount creates, so
+// nothing creates these anymore.  A control plane installed with them keeps
+// them until removeLegacyModuleInstallAccount runs, on its next install,
+// upgrade, reinstall or restore, or its teardown: the binding is
+// cluster-scoped, so deleting the namespace leaves it.
+const legacyModuleInstallServiceAccount = "module-install"
+
+// legacyModuleInstallBindingName returns the cluster role binding of
+// legacyModuleInstallServiceAccount for one control plane.
+func legacyModuleInstallBindingName(namespace string) string {
+	return legacyModuleInstallServiceAccount + "-" + namespace
+}
+
+// removeLegacyModuleInstallAccount deletes the account a module install job
+// ran as in v0.7.0-rc.5 and rc.6, and its binding to cluster-admin, from
+// this control plane.  Either one already gone is no error.
+func (cpi *ControlPlaneInstaller) removeLegacyModuleInstallAccount(
+	kubeClient dynamic.Interface,
+	mapper *meta.RESTMapper,
+) error {
+	for _, object := range []*unstructured.Unstructured{
+		kubeObject("rbac.authorization.k8s.io/v1", "ClusterRoleBinding", "", legacyModuleInstallBindingName(cpi.Opts.Namespace)),
+		kubeObject("v1", "ServiceAccount", cpi.Opts.Namespace, legacyModuleInstallServiceAccount),
+	} {
+		if err := kube.DeleteResource(object, kubeClient, *mapper); err != nil {
+			return fmt.Errorf(
+				"failed to remove the module install %s %s left by an earlier version: %w",
+				object.GetKind(), object.GetName(), err,
+			)
+		}
+	}
+
+	return nil
 }
 
 // moduleInstallConfigFile is the config the install job reads.
